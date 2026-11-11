@@ -39,8 +39,8 @@ MapBuilder.MAP_LIST = {
 
 local MORPH_TAG = "Morphable"
 local FLOOR_Y = 0
-local MAP_SIZE = 120
-local WALL_HEIGHT = 24
+local MAP_SIZE = 240
+local WALL_HEIGHT = 30
 local WALL_THICKNESS = 2
 
 -- Helper to create anchored parts cleanly
@@ -1103,12 +1103,12 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		model.Parent = lobbyFolder
 	end
 
-	-- Main Ceiling Slabs around the 32x32 Central Glass Skylight
+	-- Main Ceiling Slabs around the 48x48 Central Glass Skylight (covers full 240x240 arena)
 	for _, cp in {
-		{ Size = Vector3.new(MAP_SIZE, 2, 44), Pos = Vector3.new(0, WALL_HEIGHT + 1, -38) },
-		{ Size = Vector3.new(MAP_SIZE, 2, 44), Pos = Vector3.new(0, WALL_HEIGHT + 1, 38) },
-		{ Size = Vector3.new(44, 2, 32), Pos = Vector3.new(-38, WALL_HEIGHT + 1, 0) },
-		{ Size = Vector3.new(44, 2, 32), Pos = Vector3.new(38, WALL_HEIGHT + 1, 0) },
+		{ Size = Vector3.new(MAP_SIZE, 2, 96), Pos = Vector3.new(0, WALL_HEIGHT + 1, -72) },
+		{ Size = Vector3.new(MAP_SIZE, 2, 96), Pos = Vector3.new(0, WALL_HEIGHT + 1, 72) },
+		{ Size = Vector3.new(96, 2, 48), Pos = Vector3.new(-72, WALL_HEIGHT + 1, 0) },
+		{ Size = Vector3.new(96, 2, 48), Pos = Vector3.new(72, WALL_HEIGHT + 1, 0) },
 	} do
 		part({
 			Name = "CeilingSection",
@@ -1120,12 +1120,12 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		})
 	end
 
-	-- Wood Promenade Deck
+	-- Spacious 88x88 Wood Promenade Deck around the 48x48 Skylight
 	for _, deck in {
-		{ Size = Vector3.new(72, 0.2, 20), Pos = Vector3.new(0, lobbyY + 0.1, -26) },
-		{ Size = Vector3.new(72, 0.2, 20), Pos = Vector3.new(0, lobbyY + 0.1, 26) },
-		{ Size = Vector3.new(20, 0.2, 32), Pos = Vector3.new(-26, lobbyY + 0.1, 0) },
-		{ Size = Vector3.new(20, 0.2, 32), Pos = Vector3.new(26, lobbyY + 0.1, 0) },
+		{ Size = Vector3.new(88, 0.2, 20), Pos = Vector3.new(0, lobbyY + 0.1, -34) },
+		{ Size = Vector3.new(88, 0.2, 20), Pos = Vector3.new(0, lobbyY + 0.1, 34) },
+		{ Size = Vector3.new(20, 0.2, 48), Pos = Vector3.new(-34, lobbyY + 0.1, 0) },
+		{ Size = Vector3.new(20, 0.2, 48), Pos = Vector3.new(34, lobbyY + 0.1, 0) },
 	} do
 		part({
 			Name = "LobbyWoodDeck",
@@ -1137,10 +1137,10 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		})
 	end
 
-	-- Central Glass Skylight Floor
+	-- Central 48x48 Glass Skylight Floor
 	part({
 		Name = "ObservationGlassFloor",
-		Size = Vector3.new(32, 0.8, 32),
+		Size = Vector3.new(48, 0.8, 48),
 		Position = Vector3.new(0, WALL_HEIGHT + 1.5, 0),
 		Color = Color3.fromRGB(150, 215, 255),
 		Transparency = 0.6,
@@ -1149,10 +1149,10 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 	})
 
 	for _, border in {
-		{ Size = Vector3.new(33, 0.25, 0.6), Pos = Vector3.new(0, lobbyY + 0.12, -16.2) },
-		{ Size = Vector3.new(33, 0.25, 0.6), Pos = Vector3.new(0, lobbyY + 0.12, 16.2) },
-		{ Size = Vector3.new(0.6, 0.25, 32), Pos = Vector3.new(-16.2, lobbyY + 0.12, 0) },
-		{ Size = Vector3.new(0.6, 0.25, 32), Pos = Vector3.new(16.2, lobbyY + 0.12, 0) },
+		{ Size = Vector3.new(49, 0.25, 0.6), Pos = Vector3.new(0, lobbyY + 0.12, -24.2) },
+		{ Size = Vector3.new(49, 0.25, 0.6), Pos = Vector3.new(0, lobbyY + 0.12, 24.2) },
+		{ Size = Vector3.new(0.6, 0.25, 48), Pos = Vector3.new(-24.2, lobbyY + 0.12, 0) },
+		{ Size = Vector3.new(0.6, 0.25, 48), Pos = Vector3.new(24.2, lobbyY + 0.12, 0) },
 	} do
 		part({
 			Name = "SkylightNeonFrame",
@@ -1165,10 +1165,10 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 	end
 
 	for _, r in {
-		{ Size = Vector3.new(72, 4.5, 0.8), Pos = Vector3.new(0, lobbyY + 2.25, -36) },
-		{ Size = Vector3.new(72, 4.5, 0.8), Pos = Vector3.new(0, lobbyY + 2.25, 36) },
-		{ Size = Vector3.new(0.8, 4.5, 72), Pos = Vector3.new(-36, lobbyY + 2.25, 0) },
-		{ Size = Vector3.new(0.8, 4.5, 72), Pos = Vector3.new(36, lobbyY + 2.25, 0) },
+		{ Size = Vector3.new(88, 4.5, 0.8), Pos = Vector3.new(0, lobbyY + 2.25, -44) },
+		{ Size = Vector3.new(88, 4.5, 0.8), Pos = Vector3.new(0, lobbyY + 2.25, 44) },
+		{ Size = Vector3.new(0.8, 4.5, 88), Pos = Vector3.new(-44, lobbyY + 2.25, 0) },
+		{ Size = Vector3.new(0.8, 4.5, 88), Pos = Vector3.new(44, lobbyY + 2.25, 0) },
 	} do
 		part({
 			Name = "LobbyGlassRail",
@@ -1189,11 +1189,11 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		})
 	end
 
-	for _, px in { -34, 34 } do
-		for _, pz in { -34, 0, 34 } do
+	for _, px in { -42, 42 } do
+		for _, pz in { -42, 0, 42 } do
 			part({
 				Name = "LobbyPillar",
-				Size = Vector3.new(2.2, 16, 2.2),
+				Size = Vector3.new(2.4, 16, 2.4),
 				Position = Vector3.new(px, lobbyY + 8, pz),
 				Color = Color3.fromRGB(42, 46, 56),
 				Material = Enum.Material.Metal,
@@ -1201,10 +1201,10 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 			})
 		end
 	end
-	for i = -3, 3 do
+	for i = -4, 4 do
 		part({
 			Name = "PergolaBeam",
-			Size = Vector3.new(72, 0.8, 1.4),
+			Size = Vector3.new(88, 0.8, 1.4),
 			Position = Vector3.new(0, lobbyY + 15.8, i * 10),
 			Color = Color3.fromRGB(52, 56, 68),
 			Material = Enum.Material.Metal,
@@ -1214,24 +1214,24 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 
 	part({
 		Name = "SpawnRedCarpet",
-		Size = Vector3.new(12, 0.22, 16),
-		Position = Vector3.new(0, lobbyY + 0.11, 25),
+		Size = Vector3.new(14, 0.22, 16),
+		Position = Vector3.new(0, lobbyY + 0.11, 33),
 		Color = Color3.fromRGB(165, 38, 48),
 		Material = Enum.Material.Fabric,
 		Parent = lobbyFolder,
 	})
 	part({
 		Name = "SpawnGoldBorder",
-		Size = Vector3.new(12.8, 0.18, 16.8),
-		Position = Vector3.new(0, lobbyY + 0.09, 25),
-		Color = Color3.fromRGB(235, 190, 65),
-		Material = Enum.Material.Metal,
+		Size = Vector3.new(14.8, 0.18, 16.8),
+		Position = Vector3.new(0, lobbyY + 0.09, 33),
+		Color = Color3.fromRGB(195, 155, 52),
+		Material = Enum.Material.SmoothPlastic,
 		Parent = lobbyFolder,
 	})
 
 	local existingSpawn = workspace:FindFirstChildOfClass("SpawnLocation")
 	if existingSpawn then
-		existingSpawn.Position = Vector3.new(0, lobbyY + 0.5, 26)
+		existingSpawn.Position = Vector3.new(0, lobbyY + 0.5, 34)
 		existingSpawn.Size = Vector3.new(8, 0.6, 8)
 		existingSpawn.Anchored = true
 		existingSpawn.Neutral = true
@@ -1241,8 +1241,8 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 
 	part({
 		Name = "LobbyFeatureWall",
-		Size = Vector3.new(44, 13, 1.5),
-		Position = Vector3.new(0, lobbyY + 6.5, -35.2),
+		Size = Vector3.new(48, 13, 1.5),
+		Position = Vector3.new(0, lobbyY + 6.5, -43.2),
 		Color = Color3.fromRGB(28, 32, 44),
 		Material = Enum.Material.SmoothPlastic,
 		Parent = lobbyFolder,
@@ -1296,21 +1296,21 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 	local centerBoard = part({
 		Name = "CenterWelcomeBoard",
 		Size = Vector3.new(16, 9, 0.4),
-		Position = Vector3.new(0, lobbyY + 6.8, -34.3),
+		Position = Vector3.new(0, lobbyY + 6.8, -42.0),
 		Color = Color3.fromRGB(20, 24, 34),
 		Parent = lobbyFolder,
 	})
 	createBoardGui(
 		centerBoard,
 		"PROP HUNT : 4 MAPS!",
-		"• 4 แมพให้โหวตเลือกก่อนเริ่มเกม (หรือสุ่มแมพ!)\n• มองทะลุกระจกใสลงไปดูแมพที่เลือกได้แบบสดๆ!\n• ชนะรอบรับ +50 Coins / ผิวปากล่อ +10 Coins",
+		"• 4 แมพใหญ่พิเศษ (240x240) ให้โหวตเลือกก่อนเริ่มเกม!\n• มองทะลุกระจกใสลงไปดูแมพที่เลือกได้แบบสดๆ!\n• ชนะรอบรับ +50 Coins / ผิวปากล่อ +10 Coins",
 		Color3.fromRGB(255, 210, 65)
 	)
 
 	local leftBoard = part({
 		Name = "LeftHiderGuideBoard",
 		Size = Vector3.new(12, 8, 0.4),
-		Position = Vector3.new(-14.8, lobbyY + 6.5, -34.3),
+		Position = Vector3.new(-15.2, lobbyY + 6.5, -42.0),
 		Color = Color3.fromRGB(20, 24, 34),
 		Parent = lobbyFolder,
 	})
@@ -1324,7 +1324,7 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 	local rightBoard = part({
 		Name = "RightSeekerGuideBoard",
 		Size = Vector3.new(12, 8, 0.4),
-		Position = Vector3.new(14.8, lobbyY + 6.5, -34.3),
+		Position = Vector3.new(15.2, lobbyY + 6.5, -42.0),
 		Color = Color3.fromRGB(20, 24, 34),
 		Parent = lobbyFolder,
 	})
@@ -1343,7 +1343,7 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		part({
 			Name = "Podium_" .. pod.Rank,
 			Size = Vector3.new(4, pod.H, 4),
-			Position = Vector3.new(28, lobbyY + pod.H / 2, pod.Z),
+			Position = Vector3.new(36, lobbyY + pod.H / 2, pod.Z),
 			Color = pod.Col,
 			Material = Enum.Material.SmoothPlastic,
 			Parent = lobbyFolder,
@@ -1356,16 +1356,16 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 	votePadsFolder.Parent = lobbyFolder
 
 	for _, padInfo in {
-		{ Id = "GrandPlaza", Label = "MAP 1\nออฟฟิศพลาซ่า", X = -16, Col = Color3.fromRGB(45, 125, 195) },
-		{ Id = "CyberpunkMall", Label = "MAP 2\nไซเบอร์พังก์", X = -8, Col = Color3.fromRGB(155, 55, 205) },
+		{ Id = "GrandPlaza", Label = "MAP 1\nออฟฟิศพลาซ่า", X = -18, Col = Color3.fromRGB(45, 125, 195) },
+		{ Id = "CyberpunkMall", Label = "MAP 2\nไซเบอร์พังก์", X = -9, Col = Color3.fromRGB(155, 55, 205) },
 		{ Id = "SchoolCampus", Label = "MAP 3\nโรงเรียนมัธยม", X = 0, Col = Color3.fromRGB(48, 155, 95) },
-		{ Id = "CampingPark", Label = "MAP 4\nแคมป์ปิ้งพาร์ค", X = 8, Col = Color3.fromRGB(195, 115, 45) },
-		{ Id = "Random", Label = "RANDOM\nสุ่มแมพ!", X = 16, Col = Color3.fromRGB(185, 145, 38) },
+		{ Id = "CampingPark", Label = "MAP 4\nแคมป์ปิ้งพาร์ค", X = 9, Col = Color3.fromRGB(195, 115, 45) },
+		{ Id = "Random", Label = "RANDOM\nสุ่มแมพ!", X = 18, Col = Color3.fromRGB(185, 145, 38) },
 	} do
 		local votePad = part({
 			Name = "VotePad_" .. padInfo.Id,
-			Size = Vector3.new(6.2, 0.35, 5.2),
-			Position = Vector3.new(padInfo.X, lobbyY + 0.22, -23.5),
+			Size = Vector3.new(6.8, 0.35, 5.4),
+			Position = Vector3.new(padInfo.X, lobbyY + 0.22, -31.5),
 			Color = padInfo.Col,
 			Material = Enum.Material.SmoothPlastic,
 			Parent = votePadsFolder,
@@ -1402,17 +1402,17 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		padText.Parent = padFrame
 	end
 
-	placeLobbyDecor(createSofaModel(Color3.fromRGB(175, 58, 68)), Vector3.new(-26, lobbyY, -10), 90)
-	placeLobbyDecor(createSofaModel(Color3.fromRGB(58, 115, 168)), Vector3.new(-26, lobbyY, 10), 90)
-	placeLobbyDecor(createCafeTableModel(), Vector3.new(-26, lobbyY, 0), 0)
-	placeLobbyDecor(createArcadeCabinetModel(Color3.fromRGB(165, 55, 245)), Vector3.new(-32, lobbyY, -24), 90)
-	placeLobbyDecor(createArcadeCabinetModel(Color3.fromRGB(55, 195, 250)), Vector3.new(-32, lobbyY, -19), 90)
-	placeLobbyDecor(createVendingMachineModel(Color3.fromRGB(210, 45, 55)), Vector3.new(32, lobbyY, -24), -90)
-	placeLobbyDecor(createVendingMachineModel(Color3.fromRGB(45, 125, 215)), Vector3.new(32, lobbyY, -19), -90)
-	placeLobbyDecor(createPlantPotModel(), Vector3.new(-18, lobbyY, 18), 0)
-	placeLobbyDecor(createPlantPotModel(), Vector3.new(18, lobbyY, 18), 0)
-	placeLobbyDecor(createPlantPotModel(), Vector3.new(-18, lobbyY, -18), 0)
-	placeLobbyDecor(createPlantPotModel(), Vector3.new(18, lobbyY, -18), 0)
+	placeLobbyDecor(createSofaModel(Color3.fromRGB(175, 58, 68)), Vector3.new(-34, lobbyY, -10), 90)
+	placeLobbyDecor(createSofaModel(Color3.fromRGB(58, 115, 168)), Vector3.new(-34, lobbyY, 10), 90)
+	placeLobbyDecor(createCafeTableModel(), Vector3.new(-34, lobbyY, 0), 0)
+	placeLobbyDecor(createArcadeCabinetModel(Color3.fromRGB(165, 55, 245)), Vector3.new(-40, lobbyY, -32), 90)
+	placeLobbyDecor(createArcadeCabinetModel(Color3.fromRGB(55, 195, 250)), Vector3.new(-40, lobbyY, -27), 90)
+	placeLobbyDecor(createVendingMachineModel(Color3.fromRGB(210, 45, 55)), Vector3.new(40, lobbyY, -32), -90)
+	placeLobbyDecor(createVendingMachineModel(Color3.fromRGB(45, 125, 215)), Vector3.new(40, lobbyY, -27), -90)
+	placeLobbyDecor(createPlantPotModel(), Vector3.new(-26, lobbyY, 26), 0)
+	placeLobbyDecor(createPlantPotModel(), Vector3.new(26, lobbyY, 26), 0)
+	placeLobbyDecor(createPlantPotModel(), Vector3.new(-26, lobbyY, -26), 0)
+	placeLobbyDecor(createPlantPotModel(), Vector3.new(26, lobbyY, -26), 0)
 end
 
 --------------------------------------------------------------------------------
@@ -1458,19 +1458,21 @@ local function buildArenaShell(
 	part({ Name = "EastWainscot", Size = Vector3.new(0.4, 5, MAP_SIZE), Position = Vector3.new(half - 0.2, 2.5, 0), Color = wainscotColor, Material = Enum.Material.Wood, Parent = structureFolder })
 	part({ Name = "WestWainscot", Size = Vector3.new(0.4, 5, MAP_SIZE), Position = Vector3.new(-half + 0.2, 2.5, 0), Color = wainscotColor, Material = Enum.Material.Wood, Parent = structureFolder })
 
-	for i = -2, 2 do
-		local offset = i * 22
-		part({ Name = "NorthWindowGlass", Size = Vector3.new(11, 7, 0.5), Position = Vector3.new(offset, 13, -half + 0.2), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
-		part({ Name = "EastWindowGlass", Size = Vector3.new(0.5, 7, 11), Position = Vector3.new(half - 0.2, 13, offset), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
+	for i = -4, 4 do
+		local offset = i * 24
+		part({ Name = "NorthWindowGlass", Size = Vector3.new(13, 8, 0.5), Position = Vector3.new(offset, 16, -half + 0.2), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
+		part({ Name = "SouthWindowGlass", Size = Vector3.new(13, 8, 0.5), Position = Vector3.new(offset, 16, half - 0.2), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
+		part({ Name = "EastWindowGlass", Size = Vector3.new(0.5, 8, 13), Position = Vector3.new(half - 0.2, 16, offset), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
+		part({ Name = "WestWindowGlass", Size = Vector3.new(0.5, 8, 13), Position = Vector3.new(-half + 0.2, 16, offset), Color = windowGlowColor, Transparency = 0.25, Material = Enum.Material.Glass, Parent = structureFolder })
 	end
 
-	for gx = -2, 2 do
-		for gz = -2, 2 do
+	for gx = -3, 3 do
+		for gz = -3, 3 do
 			if not (gx == 0 and gz == 0) then
-				local lx, lz = gx * 22, gz * 22
+				local lx, lz = gx * 32, gz * 32
 				local bulb = part({
 					Name = "CeilingLight",
-					Size = Vector3.new(5.5, 0.3, 2.0),
+					Size = Vector3.new(6.0, 0.3, 2.2),
 					Position = Vector3.new(lx, WALL_HEIGHT - 0.2, lz),
 					Color = windowGlowColor,
 					Material = Enum.Material.SmoothPlastic,
@@ -1478,7 +1480,7 @@ local function buildArenaShell(
 				})
 				local pl = Instance.new("PointLight")
 				pl.Brightness = 0.65
-				pl.Range = 38
+				pl.Range = 54
 				pl.Color = windowGlowColor
 				pl.Parent = bulb
 			end
@@ -1486,8 +1488,27 @@ local function buildArenaShell(
 	end
 end
 
+-- Helper to scale inner 120x120 coordinates out to the spacious 240x240 arena (1.85x spacing)
+local function scaleAndMergePlacements(
+	baseList: { { Build: () -> Model, Pos: Vector3, Yaw: number } },
+	extraOuterList: { { Build: () -> Model, Pos: Vector3, Yaw: number } }
+): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
+	local out = {}
+	for _, item in baseList do
+		table.insert(out, {
+			Build = item.Build,
+			Pos = Vector3.new(math.round(item.Pos.X * 1.85), item.Pos.Y, math.round(item.Pos.Z * 1.85)),
+			Yaw = item.Yaw,
+		})
+	end
+	for _, item in extraOuterList do
+		table.insert(out, item)
+	end
+	return out
+end
+
 --------------------------------------------------------------------------------
--- MAP 1: GRAND PLAZA (Office, Library, Arcade Lounge & Warehouse)
+-- MAP 1: GRAND PLAZA (240x240 — Office Wing, Library, Arcade Lounge & Mega Warehouse)
 --------------------------------------------------------------------------------
 local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1499,18 +1520,18 @@ local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Mod
 		Color3.fromRGB(255, 246, 230)
 	)
 
-	part({ Name = "OfficeWoodFloor", Size = Vector3.new(54, 0.1, 54), Position = Vector3.new(31, 0.05, -31), Color = Color3.fromRGB(152, 108, 72), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
-	part({ Name = "OfficeAreaRug", Size = Vector3.new(28, 0.14, 22), Position = Vector3.new(34, 0.07, -34), Color = Color3.fromRGB(48, 78, 115), Material = Enum.Material.Fabric, Parent = structureFolder })
-	part({ Name = "ArcadeFloor", Size = Vector3.new(54, 0.1, 54), Position = Vector3.new(-31, 0.05, 31), Color = Color3.fromRGB(44, 52, 74), Material = Enum.Material.Fabric, Parent = structureFolder })
-	part({ Name = "CenterCourtyardPad", Size = Vector3.new(30, 0.12, 30), Position = Vector3.new(0, 0.06, 0), Color = Color3.fromRGB(175, 170, 162), Material = Enum.Material.Marble, Parent = structureFolder })
+	part({ Name = "OfficeWoodFloor", Size = Vector3.new(102, 0.1, 102), Position = Vector3.new(60, 0.05, -60), Color = Color3.fromRGB(152, 108, 72), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
+	part({ Name = "OfficeAreaRug", Size = Vector3.new(54, 0.14, 44), Position = Vector3.new(64, 0.07, -64), Color = Color3.fromRGB(48, 78, 115), Material = Enum.Material.Fabric, Parent = structureFolder })
+	part({ Name = "ArcadeFloor", Size = Vector3.new(102, 0.1, 102), Position = Vector3.new(-60, 0.05, 60), Color = Color3.fromRGB(44, 52, 74), Material = Enum.Material.Fabric, Parent = structureFolder })
+	part({ Name = "CenterCourtyardPad", Size = Vector3.new(56, 0.12, 56), Position = Vector3.new(0, 0.06, 0), Color = Color3.fromRGB(175, 170, 162), Material = Enum.Material.Marble, Parent = structureFolder })
 
 	for i, iw in {
-		{ Size = Vector3.new(34, 15, 1.5), Pos = Vector3.new(36, 7.5, -4) },
-		{ Size = Vector3.new(1.5, 15, 34), Pos = Vector3.new(4, 7.5, -36) },
-		{ Size = Vector3.new(34, 15, 1.5), Pos = Vector3.new(-36, 7.5, 4) },
-		{ Size = Vector3.new(1.5, 15, 34), Pos = Vector3.new(-4, 7.5, 36) },
-		{ Size = Vector3.new(22, 15, 1.5), Pos = Vector3.new(-34, 7.5, -22) },
-		{ Size = Vector3.new(1.5, 15, 22), Pos = Vector3.new(22, 7.5, 34) },
+		{ Size = Vector3.new(62, 18, 1.8), Pos = Vector3.new(68, 9, -10) },
+		{ Size = Vector3.new(1.8, 18, 62), Pos = Vector3.new(10, 9, -68) },
+		{ Size = Vector3.new(62, 18, 1.8), Pos = Vector3.new(-68, 9, 10) },
+		{ Size = Vector3.new(1.8, 18, 62), Pos = Vector3.new(-10, 9, 68) },
+		{ Size = Vector3.new(42, 18, 1.8), Pos = Vector3.new(-64, 9, -42) },
+		{ Size = Vector3.new(1.8, 18, 42), Pos = Vector3.new(42, 9, 64) },
 	} do
 		part({ Name = "PartitionWall_" .. i, Size = iw.Size, Position = iw.Pos, Color = Color3.fromRGB(198, 194, 186), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
 	end
@@ -1519,7 +1540,7 @@ local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Mod
 	local redBarrel = function() return createBarrelModel(Color3.fromRGB(195, 55, 50), Color3.fromRGB(245, 195, 45)) end
 	local greenBarrel = function() return createBarrelModel(Color3.fromRGB(55, 145, 80), Color3.fromRGB(240, 240, 240)) end
 
-	return {
+	local baseProps = {
 		{ Build = createBookshelfModel, Pos = Vector3.new(14, 0, -56), Yaw = 0 },
 		{ Build = createBookshelfModel, Pos = Vector3.new(21, 0, -56), Yaw = 0 },
 		{ Build = createBookshelfModel, Pos = Vector3.new(28, 0, -56), Yaw = 0 },
@@ -1581,10 +1602,31 @@ local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Mod
 		{ Build = function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, Pos = Vector3.new(0, 0, -11), Yaw = 0 },
 		{ Build = function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, Pos = Vector3.new(0, 0, 11), Yaw = 180 },
 	}
+
+	local extraOuter = {
+		{ Build = createComputerDeskModel, Pos = Vector3.new(86, 0, -82), Yaw = 0 },
+		{ Build = createOfficeChairModel, Pos = Vector3.new(86, 0, -76), Yaw = 180 },
+		{ Build = createComputerDeskModel, Pos = Vector3.new(86, 0, -54), Yaw = 180 },
+		{ Build = createOfficeChairModel, Pos = Vector3.new(86, 0, -60), Yaw = 0 },
+		{ Build = createBookshelfModel, Pos = Vector3.new(108, 0, -96), Yaw = -90 },
+		{ Build = createBookshelfModel, Pos = Vector3.new(108, 0, -62), Yaw = -90 },
+		{ Build = createCafeTableModel, Pos = Vector3.new(-76, 0, 82), Yaw = 0 },
+		{ Build = function() return createSofaModel(Color3.fromRGB(165, 55, 85)) end, Pos = Vector3.new(-76, 0, 74), Yaw = 0 },
+		{ Build = function() return createSofaModel(Color3.fromRGB(55, 125, 185)) end, Pos = Vector3.new(-76, 0, 90), Yaw = 180 },
+		{ Build = createPalletStackModel, Pos = Vector3.new(-82, 0, -82), Yaw = 0 },
+		{ Build = createPalletStackModel, Pos = Vector3.new(-62, 0, -86), Yaw = 25 },
+		{ Build = createCrateModel, Pos = Vector3.new(-102, 0, -68), Yaw = 15 },
+		{ Build = createPalletStackModel, Pos = Vector3.new(78, 0, 82), Yaw = -15 },
+		{ Build = createCrateModel, Pos = Vector3.new(102, 0, 68), Yaw = 0 },
+		{ Build = redBarrel, Pos = Vector3.new(92, 0, 88), Yaw = 0 },
+		{ Build = blueBarrel, Pos = Vector3.new(-92, 0, -64), Yaw = 0 },
+	}
+
+	return scaleAndMergePlacements(baseProps, extraOuter)
 end
 
 --------------------------------------------------------------------------------
--- MAP 2: CYBERPUNK NEON MALL (Futuristic Night Mall, Server Core & Cyber Lounge)
+-- MAP 2: CYBERPUNK NEON MALL (240x240 — Night Mall, Server Core & Cyber Lounge)
 --------------------------------------------------------------------------------
 local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1593,48 +1635,47 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 		Enum.Material.Metal,
 		Color3.fromRGB(34, 38, 52),
 		Color3.fromRGB(165, 35, 195),
-		Color3.fromRGB(0, 235, 255)
+		Color3.fromRGB(0, 205, 235)
 	)
 
-	-- Glowing Neon Floor Grid Strips
-	for i = -2, 2 do
+	-- Glowing Neon Floor Grid Strips across 240x240
+	for i = -3, 3 do
 		part({
 			Name = "CyberGridLineX_" .. i,
 			Size = Vector3.new(MAP_SIZE - 8, 0.1, 0.6),
-			Position = Vector3.new(0, 0.05, i * 20),
-			Color = Color3.fromRGB(0, 225, 255),
-			Material = Enum.Material.Neon,
+			Position = Vector3.new(0, 0.05, i * 32),
+			Color = Color3.fromRGB(0, 185, 225),
+			Material = Enum.Material.SmoothPlastic,
 			Parent = structureFolder,
 		})
 		part({
 			Name = "CyberGridLineZ_" .. i,
 			Size = Vector3.new(0.6, 0.1, MAP_SIZE - 8),
-			Position = Vector3.new(i * 20, 0.05, 0),
-			Color = Color3.fromRGB(245, 55, 185),
-			Material = Enum.Material.Neon,
+			Position = Vector3.new(i * 32, 0.05, 0),
+			Color = Color3.fromRGB(205, 45, 165),
+			Material = Enum.Material.SmoothPlastic,
 			Parent = structureFolder,
 		})
 	end
 
 	-- Cyber Partition Walls with Neon Edging
 	for i, iw in {
-		{ Size = Vector3.new(32, 15, 1.5), Pos = Vector3.new(32, 7.5, -14), Col = Color3.fromRGB(0, 235, 255) },
-		{ Size = Vector3.new(1.5, 15, 32), Pos = Vector3.new(14, 7.5, -32), Col = Color3.fromRGB(245, 55, 185) },
-		{ Size = Vector3.new(32, 15, 1.5), Pos = Vector3.new(-32, 7.5, 14), Col = Color3.fromRGB(245, 55, 185) },
-		{ Size = Vector3.new(1.5, 15, 32), Pos = Vector3.new(-14, 7.5, 32), Col = Color3.fromRGB(0, 235, 255) },
+		{ Size = Vector3.new(60, 18, 1.8), Pos = Vector3.new(60, 9, -24), Col = Color3.fromRGB(0, 205, 235) },
+		{ Size = Vector3.new(1.8, 18, 60), Pos = Vector3.new(24, 9, -60), Col = Color3.fromRGB(225, 55, 175) },
+		{ Size = Vector3.new(60, 18, 1.8), Pos = Vector3.new(-60, 9, 24), Col = Color3.fromRGB(225, 55, 175) },
+		{ Size = Vector3.new(1.8, 18, 60), Pos = Vector3.new(-24, 9, 60), Col = Color3.fromRGB(0, 205, 235) },
 	} do
 		part({ Name = "CyberWall_" .. i, Size = iw.Size, Position = iw.Pos, Color = Color3.fromRGB(30, 34, 48), Material = Enum.Material.Metal, Parent = structureFolder })
-		part({ Name = "CyberNeonCap_" .. i, Size = Vector3.new(iw.Size.X + 0.2, 0.4, iw.Size.Z + 0.2), Position = iw.Pos + Vector3.new(0, 7.7, 0), Color = iw.Col, Material = Enum.Material.Neon, Parent = structureFolder })
+		part({ Name = "CyberNeonCap_" .. i, Size = Vector3.new(iw.Size.X + 0.2, 0.4, iw.Size.Z + 0.2), Position = iw.Pos + Vector3.new(0, 9.2, 0), Color = iw.Col, Material = Enum.Material.Neon, Parent = structureFolder })
 	end
 
-	local cyanServer = function() return createServerRackModel(Color3.fromRGB(0, 240, 255)) end
-	local pinkServer = function() return createServerRackModel(Color3.fromRGB(255, 55, 195)) end
-	local cyberBarrelCyan = function() return createBarrelModel(Color3.fromRGB(30, 34, 46), Color3.fromRGB(0, 240, 255), true) end
-	local cyberBarrelPink = function() return createBarrelModel(Color3.fromRGB(30, 34, 46), Color3.fromRGB(255, 55, 195), true) end
-	local cyberCrate = function() return createCrateModel(1.0, Color3.fromRGB(38, 44, 62), Color3.fromRGB(0, 200, 255)) end
+	local cyanServer = function() return createServerRackModel(Color3.fromRGB(0, 215, 240)) end
+	local pinkServer = function() return createServerRackModel(Color3.fromRGB(235, 55, 185)) end
+	local cyberBarrelCyan = function() return createBarrelModel(Color3.fromRGB(30, 34, 46), Color3.fromRGB(0, 215, 240), true) end
+	local cyberBarrelPink = function() return createBarrelModel(Color3.fromRGB(30, 34, 46), Color3.fromRGB(235, 55, 185), true) end
+	local cyberCrate = function() return createCrateModel(1.0, Color3.fromRGB(38, 44, 62), Color3.fromRGB(0, 185, 235)) end
 
-	return {
-		-- NE Server Core Room
+	local baseProps = {
 		{ Build = cyanServer, Pos = Vector3.new(24, 0, -52), Yaw = 0 },
 		{ Build = pinkServer, Pos = Vector3.new(30, 0, -52), Yaw = 0 },
 		{ Build = cyanServer, Pos = Vector3.new(36, 0, -52), Yaw = 0 },
@@ -1646,7 +1687,6 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 		{ Build = function() return createComputerDeskModel(Color3.fromRGB(0, 240, 255)) end, Pos = Vector3.new(40, 0, -24), Yaw = 180 },
 		{ Build = function() return createOfficeChairModel(Color3.fromRGB(0, 185, 235)) end, Pos = Vector3.new(40, 0, -28), Yaw = 0 },
 
-		-- SW Cyber Arcade & Neon Bar
 		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(0, 245, 255)) end, Pos = Vector3.new(-54, 0, 20), Yaw = 90 },
 		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(255, 55, 195)) end, Pos = Vector3.new(-54, 0, 25), Yaw = 90 },
 		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(165, 65, 255)) end, Pos = Vector3.new(-54, 0, 30), Yaw = 90 },
@@ -1660,7 +1700,6 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 		{ Build = function() return createFloorLampModel(Color3.fromRGB(255, 65, 215)) end, Pos = Vector3.new(-38, 0, 24), Yaw = 0 },
 		{ Build = function() return createFloorLampModel(Color3.fromRGB(0, 240, 255)) end, Pos = Vector3.new(-22, 0, 38), Yaw = 0 },
 
-		-- NW & SE Cyber Cargo Sectors
 		{ Build = cyberCrate, Pos = Vector3.new(-50, 0, -50), Yaw = 0 },
 		{ Build = cyberCrate, Pos = Vector3.new(-45, 0, -50), Yaw = 15 },
 		{ Build = cyberCrate, Pos = Vector3.new(-50, 0, -44), Yaw = -10 },
@@ -1678,7 +1717,6 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 		{ Build = function() return createVendingMachineModel(Color3.fromRGB(225, 45, 145)) end, Pos = Vector3.new(26, 0, 52), Yaw = 180 },
 		{ Build = createTrashBinModel, Pos = Vector3.new(20, 0, 52), Yaw = 0 },
 
-		-- Center Neon Plaza
 		{ Build = function() return createPlantPotModel(Color3.fromRGB(0, 225, 185)) end, Pos = Vector3.new(-12, 0, -12), Yaw = 0 },
 		{ Build = function() return createPlantPotModel(Color3.fromRGB(235, 65, 195)) end, Pos = Vector3.new(12, 0, -12), Yaw = 0 },
 		{ Build = function() return createPlantPotModel(Color3.fromRGB(235, 65, 195)) end, Pos = Vector3.new(-12, 0, 12), Yaw = 0 },
@@ -1686,10 +1724,26 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 		{ Build = function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, Pos = Vector3.new(0, 0, -10), Yaw = 0 },
 		{ Build = function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, Pos = Vector3.new(0, 0, 10), Yaw = 180 },
 	}
+
+	local extraOuter = {
+		{ Build = cyanServer, Pos = Vector3.new(86, 0, -78), Yaw = 0 },
+		{ Build = pinkServer, Pos = Vector3.new(96, 0, -78), Yaw = 0 },
+		{ Build = cyanServer, Pos = Vector3.new(-78, 0, -78), Yaw = 0 },
+		{ Build = pinkServer, Pos = Vector3.new(-88, 0, -78), Yaw = 0 },
+		{ Build = cyberCrate, Pos = Vector3.new(-72, 0, -56), Yaw = 20 },
+		{ Build = cyberCrate, Pos = Vector3.new(72, 0, 72), Yaw = -20 },
+		{ Build = cyberBarrelCyan, Pos = Vector3.new(84, 0, 62), Yaw = 0 },
+		{ Build = cyberBarrelPink, Pos = Vector3.new(-82, 0, 82), Yaw = 0 },
+		{ Build = createCafeTableModel, Pos = Vector3.new(-74, 0, 60), Yaw = 0 },
+		{ Build = function() return createSofaModel(Color3.fromRGB(125, 35, 175)) end, Pos = Vector3.new(-74, 0, 52), Yaw = 0 },
+		{ Build = function() return createSofaModel(Color3.fromRGB(25, 135, 195)) end, Pos = Vector3.new(-74, 0, 68), Yaw = 180 },
+	}
+
+	return scaleAndMergePlacements(baseProps, extraOuter)
 end
 
 --------------------------------------------------------------------------------
--- MAP 3: HIGH SCHOOL CAMPUS (Classrooms, Cafeteria, Gym & Library)
+-- MAP 3: HIGH SCHOOL CAMPUS (240x240 — Classrooms, Cafeteria, Gym & Library)
 --------------------------------------------------------------------------------
 local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1701,20 +1755,20 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 		Color3.fromRGB(255, 250, 238)
 	)
 
-	-- Classroom Wood Floor (NE), Gym Hardwood Floor (SE), Cafeteria Tile (SW)
-	part({ Name = "ClassroomFloor", Size = Vector3.new(52, 0.1, 52), Position = Vector3.new(32, 0.05, -32), Color = Color3.fromRGB(172, 132, 92), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
-	part({ Name = "GymCourtFloor", Size = Vector3.new(52, 0.1, 52), Position = Vector3.new(32, 0.05, 32), Color = Color3.fromRGB(205, 148, 82), Material = Enum.Material.Wood, Parent = structureFolder })
-	part({ Name = "CafeteriaFloor", Size = Vector3.new(52, 0.1, 52), Position = Vector3.new(-32, 0.05, 32), Color = Color3.fromRGB(135, 165, 185), Material = Enum.Material.Marble, Parent = structureFolder })
+	-- Classroom Wood Floor (NE), Gym Hardwood Floor (SE), Cafeteria Tile (SW) across 240x240
+	part({ Name = "ClassroomFloor", Size = Vector3.new(98, 0.1, 98), Position = Vector3.new(60, 0.05, -60), Color = Color3.fromRGB(172, 132, 92), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
+	part({ Name = "GymCourtFloor", Size = Vector3.new(98, 0.1, 98), Position = Vector3.new(60, 0.05, 60), Color = Color3.fromRGB(205, 148, 82), Material = Enum.Material.Wood, Parent = structureFolder })
+	part({ Name = "CafeteriaFloor", Size = Vector3.new(98, 0.1, 98), Position = Vector3.new(-60, 0.05, 60), Color = Color3.fromRGB(135, 165, 185), Material = Enum.Material.Marble, Parent = structureFolder })
 
 	-- Classroom Green Chalkboard on North Wall
-	part({ Name = "Chalkboard", Size = Vector3.new(22, 6, 0.4), Position = Vector3.new(32, 8, -58.5), Color = Color3.fromRGB(38, 88, 56), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
+	part({ Name = "Chalkboard", Size = Vector3.new(38, 8, 0.4), Position = Vector3.new(60, 10, -118.5), Color = Color3.fromRGB(38, 88, 56), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
 
 	-- School Hallway Partition Walls
 	for i, iw in {
-		{ Size = Vector3.new(34, 15, 1.5), Pos = Vector3.new(36, 7.5, -6) },
-		{ Size = Vector3.new(1.5, 15, 34), Pos = Vector3.new(6, 7.5, -36) },
-		{ Size = Vector3.new(34, 15, 1.5), Pos = Vector3.new(-36, 7.5, 6) },
-		{ Size = Vector3.new(1.5, 15, 34), Pos = Vector3.new(-6, 7.5, 36) },
+		{ Size = Vector3.new(64, 18, 1.8), Pos = Vector3.new(68, 9, -12) },
+		{ Size = Vector3.new(1.8, 18, 64), Pos = Vector3.new(12, 9, -68) },
+		{ Size = Vector3.new(64, 18, 1.8), Pos = Vector3.new(-68, 9, 12) },
+		{ Size = Vector3.new(1.8, 18, 64), Pos = Vector3.new(-12, 9, 68) },
 	} do
 		part({ Name = "SchoolWall_" .. i, Size = iw.Size, Position = iw.Pos, Color = Color3.fromRGB(220, 214, 198), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
 	end
@@ -1722,8 +1776,7 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 	local blueLocker = function() return createSchoolLockerModel(Color3.fromRGB(48, 118, 195)) end
 	local redLocker = function() return createSchoolLockerModel(Color3.fromRGB(195, 58, 58)) end
 
-	return {
-		-- NE Classroom (Rows of Student Desks & Chairs + Teacher Desk)
+	local baseProps = {
 		{ Build = createComputerDeskModel, Pos = Vector3.new(32, 0, -50), Yaw = 180 },
 		{ Build = createSchoolDeskModel, Pos = Vector3.new(22, 0, -38), Yaw = 0 },
 		{ Build = createSchoolDeskModel, Pos = Vector3.new(32, 0, -38), Yaw = 0 },
@@ -1739,7 +1792,6 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 		{ Build = createTrashBinModel, Pos = Vector3.new(14, 0, -52), Yaw = 0 },
 		{ Build = createWaterCoolerModel, Pos = Vector3.new(52, 0, -14), Yaw = 180 },
 
-		-- NW School Library & Hallway Lockers
 		{ Build = blueLocker, Pos = Vector3.new(-16, 0, -56), Yaw = 0 },
 		{ Build = blueLocker, Pos = Vector3.new(-22, 0, -56), Yaw = 0 },
 		{ Build = redLocker, Pos = Vector3.new(-28, 0, -56), Yaw = 0 },
@@ -1752,7 +1804,6 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 		{ Build = createFilingCabinetModel, Pos = Vector3.new(-48, 0, -54), Yaw = 0 },
 		{ Build = createPlantPotModel, Pos = Vector3.new(-12, 0, -14), Yaw = 0 },
 
-		-- SW School Cafeteria (Picnic/Lunch Tables + Vending Machines)
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 22), Yaw = 0 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-24, 0, 22), Yaw = 0 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 38), Yaw = 0 },
@@ -1762,7 +1813,6 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 		{ Build = createTrashBinModel, Pos = Vector3.new(-40, 0, 54), Yaw = 0 },
 		{ Build = createWaterCoolerModel, Pos = Vector3.new(-14, 0, 52), Yaw = 180 },
 
-		-- SE Gymnasium & Locker Area
 		{ Build = redLocker, Pos = Vector3.new(54, 0, 18), Yaw = -90 },
 		{ Build = redLocker, Pos = Vector3.new(54, 0, 24), Yaw = -90 },
 		{ Build = blueLocker, Pos = Vector3.new(54, 0, 30), Yaw = -90 },
@@ -1773,10 +1823,25 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 		{ Build = createCrateModel, Pos = Vector3.new(48, 0, 50), Yaw = 12 },
 		{ Build = createTrashBinModel, Pos = Vector3.new(16, 0, 50), Yaw = 0 },
 	}
+
+	local extraOuter = {
+		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -70), Yaw = 0 },
+		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -52), Yaw = 0 },
+		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -34), Yaw = 0 },
+		{ Build = createBookshelfModel, Pos = Vector3.new(-76, 0, -82), Yaw = 0 },
+		{ Build = createBookshelfModel, Pos = Vector3.new(-58, 0, -82), Yaw = 0 },
+		{ Build = createPicnicTableModel, Pos = Vector3.new(-92, 0, 42), Yaw = 0 },
+		{ Build = createPicnicTableModel, Pos = Vector3.new(-92, 0, 72), Yaw = 0 },
+		{ Build = blueLocker, Pos = Vector3.new(108, 0, 68), Yaw = -90 },
+		{ Build = redLocker, Pos = Vector3.new(108, 0, 76), Yaw = -90 },
+		{ Build = createPalletStackModel, Pos = Vector3.new(84, 0, 88), Yaw = 0 },
+	}
+
+	return scaleAndMergePlacements(baseProps, extraOuter)
 end
 
 --------------------------------------------------------------------------------
--- MAP 4: SUNSET CAMPING PARK (Forest Tents, Campfires, Picnic Tables & Pines)
+-- MAP 4: SUNSET CAMPING PARK (240x240 — Forest Tents, Campfires, Picnic Tables & Pines)
 --------------------------------------------------------------------------------
 local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1788,17 +1853,17 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 		Color3.fromRGB(255, 195, 115)
 	)
 
-	-- Cobblestone Crosswalk Paths & Central Campfire Plaza
-	part({ Name = "StonePathNS", Size = Vector3.new(12, 0.1, MAP_SIZE - 8), Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(135, 132, 125), Material = Enum.Material.Cobblestone, Parent = structureFolder })
-	part({ Name = "StonePathEW", Size = Vector3.new(MAP_SIZE - 8, 0.1, 12), Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(135, 132, 125), Material = Enum.Material.Cobblestone, Parent = structureFolder })
-	part({ Name = "CenterStoneCircle", Size = Vector3.new(28, 0.12, 28), Position = Vector3.new(0, 0.06, 0), Color = Color3.fromRGB(145, 140, 132), Material = Enum.Material.Cobblestone, Parent = structureFolder })
+	-- Cobblestone Crosswalk Paths & Central Campfire Plaza across 240x240
+	part({ Name = "StonePathNS", Size = Vector3.new(18, 0.1, MAP_SIZE - 8), Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(135, 132, 125), Material = Enum.Material.Cobblestone, Parent = structureFolder })
+	part({ Name = "StonePathEW", Size = Vector3.new(MAP_SIZE - 8, 0.1, 18), Position = Vector3.new(0, 0.05, 0), Color = Color3.fromRGB(135, 132, 125), Material = Enum.Material.Cobblestone, Parent = structureFolder })
+	part({ Name = "CenterStoneCircle", Size = Vector3.new(52, 0.12, 52), Position = Vector3.new(0, 0.06, 0), Color = Color3.fromRGB(145, 140, 132), Material = Enum.Material.Cobblestone, Parent = structureFolder })
 
 	-- Wooden Ranger Fence / Cabin Dividers
 	for i, fw in {
-		{ Size = Vector3.new(26, 8, 1.2), Pos = Vector3.new(34, 4, -12) },
-		{ Size = Vector3.new(1.2, 8, 26), Pos = Vector3.new(-12, 4, 34) },
-		{ Size = Vector3.new(26, 8, 1.2), Pos = Vector3.new(-34, 4, -12) },
-		{ Size = Vector3.new(1.2, 8, 26), Pos = Vector3.new(12, 4, 34) },
+		{ Size = Vector3.new(48, 9, 1.5), Pos = Vector3.new(64, 4.5, -22) },
+		{ Size = Vector3.new(1.5, 9, 48), Pos = Vector3.new(-22, 4.5, 64) },
+		{ Size = Vector3.new(48, 9, 1.5), Pos = Vector3.new(-64, 4.5, -22) },
+		{ Size = Vector3.new(1.5, 9, 48), Pos = Vector3.new(22, 4.5, 64) },
 	} do
 		part({ Name = "TimberWall_" .. i, Size = fw.Size, Position = fw.Pos, Color = Color3.fromRGB(122, 82, 48), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
 	end
@@ -1809,13 +1874,11 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 	local redTent = function() return createCampingTentModel(Color3.fromRGB(205, 65, 65)) end
 	local greenBarrel = function() return createBarrelModel(Color3.fromRGB(55, 135, 72), Color3.fromRGB(220, 195, 135)) end
 
-	return {
-		-- Center Campfire Gathering
+	local baseProps = {
 		{ Build = createCampfireModel, Pos = Vector3.new(0, 0, -8), Yaw = 0 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-10, 0, 0), Yaw = 90 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(10, 0, 0), Yaw = 90 },
 
-		-- NE Tent Campsite
 		{ Build = orangeTent, Pos = Vector3.new(26, 0, -44), Yaw = 25 },
 		{ Build = greenTent, Pos = Vector3.new(44, 0, -42), Yaw = -20 },
 		{ Build = blueTent, Pos = Vector3.new(46, 0, -24), Yaw = 110 },
@@ -1825,7 +1888,6 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 		{ Build = createPineTreeModel, Pos = Vector3.new(16, 0, -52), Yaw = 15 },
 		{ Build = createCrateModel, Pos = Vector3.new(50, 0, -16), Yaw = 0 },
 
-		-- NW Pine Woods & Ranger Outpost
 		{ Build = createPineTreeModel, Pos = Vector3.new(-50, 0, -50), Yaw = 0 },
 		{ Build = createPineTreeModel, Pos = Vector3.new(-36, 0, -52), Yaw = 30 },
 		{ Build = createPineTreeModel, Pos = Vector3.new(-52, 0, -34), Yaw = 45 },
@@ -1836,7 +1898,6 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 		{ Build = createPalletStackModel, Pos = Vector3.new(-42, 0, -20), Yaw = 15 },
 		{ Build = greenBarrel, Pos = Vector3.new(-20, 0, -24), Yaw = 0 },
 
-		-- SW Picnic & Park Grove
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 26), Yaw = 0 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-26, 0, 26), Yaw = 0 },
 		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 44), Yaw = 0 },
@@ -1847,7 +1908,6 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 		{ Build = createPlantPotModel, Pos = Vector3.new(-18, 0, 50), Yaw = 0 },
 		{ Build = createFloorLampModel, Pos = Vector3.new(-34, 0, 35), Yaw = 0 },
 
-		-- SE Lakeside / Expedition Camp
 		{ Build = blueTent, Pos = Vector3.new(28, 0, 46), Yaw = -15 },
 		{ Build = orangeTent, Pos = Vector3.new(46, 0, 42), Yaw = 40 },
 		{ Build = greenTent, Pos = Vector3.new(44, 0, 24), Yaw = -60 },
@@ -1858,6 +1918,22 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 		{ Build = createCrateModel, Pos = Vector3.new(26, 0, 22), Yaw = 12 },
 		{ Build = createTrafficConeModel, Pos = Vector3.new(16, 0, 16), Yaw = 0 },
 	}
+
+	local extraOuter = {
+		{ Build = createPineTreeModel, Pos = Vector3.new(104, 0, -104), Yaw = 0 },
+		{ Build = createPineTreeModel, Pos = Vector3.new(-104, 0, -104), Yaw = 25 },
+		{ Build = createPineTreeModel, Pos = Vector3.new(-104, 0, 104), Yaw = 15 },
+		{ Build = createPineTreeModel, Pos = Vector3.new(104, 0, 104), Yaw = 40 },
+		{ Build = createPineTreeModel, Pos = Vector3.new(72, 0, -102), Yaw = 10 },
+		{ Build = createPineTreeModel, Pos = Vector3.new(-72, 0, 102), Yaw = 20 },
+		{ Build = orangeTent, Pos = Vector3.new(-82, 0, -56), Yaw = 35 },
+		{ Build = greenTent, Pos = Vector3.new(92, 0, -68), Yaw = -45 },
+		{ Build = redTent, Pos = Vector3.new(92, 0, 68), Yaw = 120 },
+		{ Build = createPicnicTableModel, Pos = Vector3.new(68, 0, 48), Yaw = 0 },
+		{ Build = createCampfireModel, Pos = Vector3.new(-68, 0, 62), Yaw = 0 },
+	}
+
+	return scaleAndMergePlacements(baseProps, extraOuter)
 end
 
 --------------------------------------------------------------------------------
@@ -1882,31 +1958,60 @@ function MapBuilder.Generate(mapId: string?)
 		end
 	end
 
-	-- Ensure permanent Sky Lounge Lobby, MapSpawn, and SeekerWaitingBox exist
+	-- Ensure permanent Sky Lounge Lobby, MapSpawns, and SeekerWaitingBox exist
 	ensureSkyLoungeLobby(mapFolder)
 
 	if not workspace:FindFirstChild("MapSpawn") then
 		part({
 			Name = "MapSpawn",
-			Size = Vector3.new(8, 0.2, 8),
+			Size = Vector3.new(10, 0.2, 10),
 			Position = Vector3.new(0, FLOOR_Y + 0.1, 0),
 			Color = Color3.fromRGB(80, 175, 255),
 			Transparency = 0.6,
 			CanCollide = false,
-			Material = Enum.Material.Neon,
+			Material = Enum.Material.SmoothPlastic,
 			Parent = workspace,
 		})
 	end
 
-	if not workspace:FindFirstChild("SeekerWaitingBox") then
+	-- Create 8 distributed MapSpawns across the spacious 240x240 arena
+	if not workspace:FindFirstChild("MapSpawns") then
+		local spawnsFolder = Instance.new("Folder")
+		spawnsFolder.Name = "MapSpawns"
+		spawnsFolder.Parent = workspace
+		for idx, spPos in {
+			Vector3.new(0, FLOOR_Y + 0.2, 0),
+			Vector3.new(-28, FLOOR_Y + 0.2, 0),
+			Vector3.new(28, FLOOR_Y + 0.2, 0),
+			Vector3.new(0, FLOOR_Y + 0.2, -28),
+			Vector3.new(0, FLOOR_Y + 0.2, 28),
+			Vector3.new(-42, FLOOR_Y + 0.2, -16),
+			Vector3.new(42, FLOOR_Y + 0.2, 16),
+			Vector3.new(-16, FLOOR_Y + 0.2, 42),
+		} do
+			part({
+				Name = "ArenaSpawn_" .. idx,
+				Size = Vector3.new(6, 0.2, 6),
+				Position = spPos,
+				Transparency = 1,
+				CanCollide = false,
+				Parent = spawnsFolder,
+			})
+		end
+	end
+
+	local seekerBox = workspace:FindFirstChild("SeekerWaitingBox") :: BasePart?
+	if not seekerBox then
 		part({
 			Name = "SeekerWaitingBox",
 			Size = Vector3.new(18, 1, 18),
-			Position = Vector3.new(120, WALL_HEIGHT + 10, 0),
+			Position = Vector3.new(180, WALL_HEIGHT + 12, 0),
 			Color = Color3.fromRGB(220, 65, 65),
 			Material = Enum.Material.Metal,
 			Parent = workspace,
 		})
+	else
+		seekerBox.Position = Vector3.new(180, WALL_HEIGHT + 12, 0)
 	end
 
 	local structureFolder = Instance.new("Folder")
@@ -1917,12 +2022,12 @@ function MapBuilder.Generate(mapId: string?)
 	propsFolder.Name = "Props"
 	propsFolder.Parent = mapFolder
 
-	-- 4 Central Atrium Columns (shared across maps to support the Skylight)
-	for _, sx in { -15, 15 } do
-		for _, sz in { -15, 15 } do
+	-- 4 Central Atrium Columns (shared across maps to support the 48x48 Skylight)
+	for _, sx in { -23, 23 } do
+		for _, sz in { -23, 23 } do
 			part({
 				Name = "AtriumPillar",
-				Size = Vector3.new(3, WALL_HEIGHT, 3),
+				Size = Vector3.new(3.4, WALL_HEIGHT, 3.4),
 				Position = Vector3.new(sx, WALL_HEIGHT / 2, sz),
 				Color = Color3.fromRGB(48, 52, 62),
 				Material = Enum.Material.Metal,

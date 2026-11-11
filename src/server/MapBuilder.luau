@@ -58,6 +58,12 @@ local function part(props: { [string]: any }): Part
 	if props.CanCollide ~= nil then
 		p.CanCollide = props.CanCollide
 	end
+	if props.CanQuery ~= nil then
+		p.CanQuery = props.CanQuery
+	end
+	if props.CastShadow ~= nil then
+		p.CastShadow = props.CastShadow
+	end
 	if props.Shape then
 		p.Shape = props.Shape
 	end
@@ -90,6 +96,22 @@ local function placeMorphableProp(model: Model, parent: Instance, groundPos: Vec
 
 	model:PivotTo(rotatedPivot)
 	CollectionService:AddTag(model, MORPH_TAG)
+
+	-- Add a ProximityPrompt so Hiders on PC ([E]) or Mobile (Tap) can easily morph into any nearby prop!
+	local promptParent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if promptParent and not promptParent:FindFirstChild("MorphPrompt") then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "MorphPrompt"
+		prompt.ActionText = "แปลงร่าง (Morph)"
+		prompt.ObjectText = string.gsub(model.Name, "_%d+$", "")
+		prompt.KeyboardKeyCode = Enum.KeyCode.E
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 14
+		prompt.RequiresLineOfSight = false
+		prompt.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
+		prompt.Parent = promptParent
+	end
+
 	model.Parent = parent
 end
 
@@ -1116,6 +1138,7 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 			Position = cp.Pos,
 			Color = Color3.fromRGB(62, 66, 76),
 			Material = Enum.Material.Metal,
+			CastShadow = false,
 			Parent = lobbyFolder,
 		})
 	end
@@ -1133,6 +1156,7 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 			Position = deck.Pos,
 			Color = Color3.fromRGB(142, 98, 64),
 			Material = Enum.Material.WoodPlanks,
+			CastShadow = false,
 			Parent = lobbyFolder,
 		})
 	end
@@ -1145,6 +1169,8 @@ local function ensureSkyLoungeLobby(mapFolder: Folder)
 		Color = Color3.fromRGB(150, 215, 255),
 		Transparency = 0.6,
 		Material = Enum.Material.Glass,
+		CastShadow = false,
+		CanQuery = false,
 		Parent = lobbyFolder,
 	})
 
@@ -1680,9 +1706,9 @@ end
 local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
 		structureFolder,
-		Color3.fromRGB(24, 26, 36),
-		Enum.Material.Metal,
-		Color3.fromRGB(34, 38, 52),
+		Color3.fromRGB(28, 32, 46),
+		Enum.Material.SmoothPlastic,
+		Color3.fromRGB(36, 40, 56),
 		Color3.fromRGB(165, 35, 195),
 		Color3.fromRGB(0, 205, 235)
 	)
@@ -2096,6 +2122,12 @@ end
 function MapBuilder.Generate(mapId: string?)
 	local chosenId: string = mapId or "GrandPlaza"
 
+	-- Destroy default Workspace.Baseplate so it never Z-fights with MainFloor at Y=0!
+	local oldBaseplate = workspace:FindFirstChild("Baseplate")
+	if oldBaseplate then
+		oldBaseplate:Destroy()
+	end
+
 	-- Find or create top-level GameMap folder
 	local mapFolder = workspace:FindFirstChild("GameMap") :: Folder?
 	if not mapFolder then
@@ -2104,10 +2136,13 @@ function MapBuilder.Generate(mapId: string?)
 		mapFolder.Parent = workspace
 	end
 
-	-- Clean up only the Arena Structure & Props so SkyLoungeLobby stays intact!
+	-- Clean up ALL Arena Structure & Props folders so SkyLoungeLobby stays intact and no duplicates remain!
 	for _, childName in { "Structure", "Props" } do
-		local old = mapFolder:FindFirstChild(childName)
-		if old then
+		while true do
+			local old = mapFolder:FindFirstChild(childName)
+			if not old then
+				break
+			end
 			old:Destroy()
 		end
 	end
@@ -2115,7 +2150,8 @@ function MapBuilder.Generate(mapId: string?)
 	-- Ensure permanent Sky Lounge Lobby, MapSpawns, and SeekerWaitingBox exist
 	ensureSkyLoungeLobby(mapFolder)
 
-	if not workspace:FindFirstChild("MapSpawn") then
+	local existingMapSpawn = workspace:FindFirstChild("MapSpawn") :: BasePart?
+	if not existingMapSpawn then
 		part({
 			Name = "MapSpawn",
 			Size = Vector3.new(10, 0.2, 10),
@@ -2123,9 +2159,12 @@ function MapBuilder.Generate(mapId: string?)
 			Color = Color3.fromRGB(80, 175, 255),
 			Transparency = 0.6,
 			CanCollide = false,
+			CanQuery = false,
 			Material = Enum.Material.SmoothPlastic,
 			Parent = workspace,
 		})
+	else
+		existingMapSpawn.CanQuery = false
 	end
 
 	-- Create 8 distributed MapSpawns across the spacious 240x240 arena
@@ -2149,6 +2188,7 @@ function MapBuilder.Generate(mapId: string?)
 				Position = spPos,
 				Transparency = 1,
 				CanCollide = false,
+				CanQuery = false,
 				Parent = spawnsFolder,
 			})
 		end

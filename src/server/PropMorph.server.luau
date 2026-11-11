@@ -1,6 +1,10 @@
 --!strict
 -- ServerScriptService/Server/PropMorph.server.luau
--- Handles Hider prop morphing, prop lock/anchoring, and 45-degree prop rotation on the Server.
+-- Handles:
+-- 1. Hider prop morphing (unlimited prop switching during Hiding Phase & Hunting Phase!)
+-- 2. Auto-Morph when Hiding Phase ends: if a Hider hasn't morphed yet when Hunting Phase begins,
+--    automatically morphs them into the nearest prop!
+-- 3. Prop Lock / Anchoring ([F] key) and 45-degree Prop Rotation ([R] key).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,11 +16,11 @@ local morphRequestEvent = PropRemotes.MorphRequest
 local toggleLockEvent = PropRemotes.ToggleLockRequest
 local rotatePropEvent = PropRemotes.RotatePropRequest
 
-local MAX_MORPH_DISTANCE = 15
+local MAX_MORPH_DISTANCE = 35
 local MORPH_TAG = "Morphable"
 local HIDERS_TEAM_NAME = "Hiders"
 local ACTIVE_PROP_NAME = "MorphedProp"
-local COOLDOWN_TIME = 0.5
+local COOLDOWN_TIME = 0.2
 
 local morphCooldowns: { [Player]: number } = {}
 
@@ -42,23 +46,89 @@ local function isValidHider(player: Player): (boolean, Model?, BasePart?, Humano
 	return true, character, rootPart, humanoid
 end
 
+-- Helper: Check if an instance is a valid Morphable prop (by tag OR by being inside Workspace.GameMap.Props)
+local function isMorphablePropInstance(inst: Instance): boolean
+	if not (inst:IsA("Model") or inst:IsA("BasePart")) then
+		return false
+	end
+	if inst.Name == ACTIVE_PROP_NAME then
+		return false
+	end
+	if CollectionService:HasTag(inst, MORPH_TAG) then
+		return true
+	end
+	local parent = inst.Parent
+	if parent and parent.Name == "Props" and parent.Parent and parent.Parent.Name == "GameMap" then
+		return true
+	end
+	return false
+end
+
 -- Helper: Resolve the top-level tagged Model or BasePart
-local function getMorphableTarget(instance: Instance): Instance?
-	if not instance or not instance:IsDescendantOf(workspace) then
+local function getMorphableTarget(instance: Instance?): Instance?
+	if not instance or typeof(instance) ~= "Instance" or not instance:IsDescendantOf(workspace) then
 		return nil
 	end
 
 	local current: Instance? = instance
 	while current and current ~= workspace do
-		if CollectionService:HasTag(current, MORPH_TAG) then
-			if current:IsA("Model") or current:IsA("BasePart") then
-				return current
-			end
+		if isMorphablePropInstance(current) then
+			return current
 		end
 		current = current.Parent
 	end
 
 	return nil
+end
+
+-- Helper: Calculate distance from player's root to the target prop
+local function getDistanceToProp(rootPart: BasePart, target: Instance): number
+	if target:IsA("BasePart") then
+		return (rootPart.Position - target.Position).Magnitude
+	elseif target:IsA("Model") then
+		local bboxCF, _ = target:GetBoundingBox()
+		local d1 = (rootPart.Position - target:GetPivot().Position).Magnitude
+		local d2 = (rootPart.Position - bboxCF.Position).Magnitude
+		return math.min(d1, d2)
+	end
+	return math.huge
+end
+
+-- Helper: Find the closest Morphable prop in the map to a given position
+local function findNearestMorphableProp(originPos: Vector3, maxRange: number?): Instance?
+	local candidates: { Instance } = CollectionService:GetTagged(MORPH_TAG)
+	local gameMap = workspace:FindFirstChild("GameMap")
+	local propsFolder = gameMap and gameMap:FindFirstChild("Props")
+	if propsFolder then
+		for _, child in propsFolder:GetChildren() do
+			if isMorphablePropInstance(child) then
+				table.insert(candidates, child)
+			end
+		end
+	end
+
+	local bestProp: Instance? = nil
+	local bestDist = maxRange or math.huge
+
+	for _, prop in candidates do
+		if prop:IsDescendantOf(workspace) and prop.Name ~= ACTIVE_PROP_NAME then
+			local pos: Vector3? = nil
+			if prop:IsA("Model") then
+				pos = prop:GetPivot().Position
+			elseif prop:IsA("BasePart") then
+				pos = prop.Position
+			end
+			if pos then
+				local dist = (originPos - pos).Magnitude
+				if dist < bestDist then
+					bestDist = dist
+					bestProp = prop
+				end
+			end
+		end
+	end
+
+	return bestProp
 end
 
 -- Helper: Hide player's character parts, decals/faces, and nametag
@@ -80,16 +150,6 @@ local function makeCharacterInvisible(character: Model, humanoid: Humanoid)
 			desc.Enabled = false
 		end
 	end
-end
-
--- Helper: Calculate distance from player's root to the target prop
-local function getDistanceToProp(rootPart: BasePart, target: Instance): number
-	if target:IsA("BasePart") then
-		return (rootPart.Position - target.Position).Magnitude
-	elseif target:IsA("Model") then
-		return (rootPart.Position - target:GetPivot().Position).Magnitude
-	end
-	return math.huge
 end
 
 -- Helper: Align cloned prop with ground relative to HumanoidRootPart and weld it
@@ -148,30 +208,11 @@ local function prepareAndWeldProp(propClone: Instance, rootPart: BasePart, human
 	end
 end
 
--- Handle Morph Requests
-morphRequestEvent.OnServerEvent:Connect(function(player: Player, targetInstance: Instance)
-	local now = os.clock()
-	if morphCooldowns[player] and (now - morphCooldowns[player]) < COOLDOWN_TIME then
-		return
-	end
-	morphCooldowns[player] = now
-
+-- Core Morph Execution Function (supports switching props repeatedly AND auto-morphing!)
+local function morphHiderIntoTarget(player: Player, morphTarget: Instance): boolean
 	local isHider, character, rootPart, humanoid = isValidHider(player)
 	if not isHider or not character or not rootPart or not humanoid then
-		return
-	end
-
-	if typeof(targetInstance) ~= "Instance" then
-		return
-	end
-
-	local morphTarget = getMorphableTarget(targetInstance)
-	if not morphTarget or morphTarget.Name == ACTIVE_PROP_NAME then
-		return
-	end
-
-	if getDistanceToProp(rootPart, morphTarget) > MAX_MORPH_DISTANCE then
-		return
+		return false
 	end
 
 	local existingProp = character:FindFirstChild(ACTIVE_PROP_NAME)
@@ -191,7 +232,63 @@ morphRequestEvent.OnServerEvent:Connect(function(player: Player, targetInstance:
 	prepareAndWeldProp(propClone, rootPart, humanoid)
 	propClone.Parent = character
 
+	character:SetAttribute("IsMorphed", true)
+	character:SetAttribute("MorphedPropName", string.gsub(morphTarget.Name, "_%d+$", ""))
+
 	rootPart.Anchored = wasAnchored
+	return true
+end
+
+-- Handle Morph Requests (Hiders can change props repeatedly anytime!)
+morphRequestEvent.OnServerEvent:Connect(function(player: Player, targetInstance: Instance?)
+	local now = os.clock()
+	if morphCooldowns[player] and (now - morphCooldowns[player]) < COOLDOWN_TIME then
+		return
+	end
+	morphCooldowns[player] = now
+
+	local isHider, _character, rootPart, _humanoid = isValidHider(player)
+	if not isHider or not rootPart then
+		return
+	end
+
+	local morphTarget = getMorphableTarget(targetInstance)
+	if not morphTarget or getDistanceToProp(rootPart, morphTarget) > MAX_MORPH_DISTANCE then
+		-- Fallback: if the player pressed [E] without aiming directly at a prop, morph into the nearest prop within range!
+		morphTarget = findNearestMorphableProp(rootPart.Position, MAX_MORPH_DISTANCE)
+	end
+
+	if not morphTarget then
+		return
+	end
+
+	morphHiderIntoTarget(player, morphTarget)
+end)
+
+-- AUTO-MORPH AT END OF HIDING PHASE:
+-- When RoundState transitions to "HuntingPhase", any Hider who hasn't morphed yet
+-- is automatically morphed into the closest prop to their position!
+local function autoMorphUnmorphedHiders()
+	local hidersTeam = Teams:FindFirstChild(HIDERS_TEAM_NAME)
+	for _, player in Players:GetPlayers() do
+		if not hidersTeam or player.Team == hidersTeam then
+			local isHider, character, rootPart, _humanoid = isValidHider(player)
+			if isHider and character and rootPart and not character:FindFirstChild(ACTIVE_PROP_NAME) then
+				local nearestProp = findNearestMorphableProp(rootPart.Position)
+				if nearestProp then
+					morphHiderIntoTarget(player, nearestProp)
+				end
+			end
+		end
+	end
+end
+
+workspace:GetAttributeChangedSignal("RoundState"):Connect(function()
+	local newState = workspace:GetAttribute("RoundState")
+	if newState == "HuntingPhase" then
+		autoMorphUnmorphedHiders()
+		task.delay(0.3, autoMorphUnmorphedHiders)
+	end
 end)
 
 -- Handle Prop Lock / Anchor Toggle
@@ -224,7 +321,6 @@ rotatePropEvent.OnServerEvent:Connect(function(player: Player)
 		return
 	end
 
-	-- Snap/rotate HumanoidRootPart by 45 degrees on the Y axis so the welded prop rotates cleanly
 	local pos = rootPart.Position
 	local _, currentY, _ = rootPart.CFrame:ToOrientation()
 	local snappedDeg = math.round(math.deg(currentY) / 45) * 45 + 45

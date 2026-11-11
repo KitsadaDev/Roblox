@@ -1488,27 +1488,8 @@ local function buildArenaShell(
 	end
 end
 
--- Helper to scale inner 120x120 coordinates out to the spacious 240x240 arena (1.85x spacing)
-local function scaleAndMergePlacements(
-	baseList: { { Build: () -> Model, Pos: Vector3, Yaw: number } },
-	extraOuterList: { { Build: () -> Model, Pos: Vector3, Yaw: number } }
-): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
-	local out = {}
-	for _, item in baseList do
-		table.insert(out, {
-			Build = item.Build,
-			Pos = Vector3.new(math.round(item.Pos.X * 1.85), item.Pos.Y, math.round(item.Pos.Z * 1.85)),
-			Yaw = item.Yaw,
-		})
-	end
-	for _, item in extraOuterList do
-		table.insert(out, item)
-	end
-	return out
-end
-
 --------------------------------------------------------------------------------
--- MAP 1: GRAND PLAZA (240x240 — Office Wing, Library, Arcade Lounge & Mega Warehouse)
+-- MAP 1: GRAND PLAZA (240x240 — Dense Office Wing, Library, Arcade Lounge & Mega Warehouse)
 --------------------------------------------------------------------------------
 local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1521,7 +1502,7 @@ local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Mod
 	)
 
 	part({ Name = "OfficeWoodFloor", Size = Vector3.new(102, 0.1, 102), Position = Vector3.new(60, 0.05, -60), Color = Color3.fromRGB(152, 108, 72), Material = Enum.Material.WoodPlanks, Parent = structureFolder })
-	part({ Name = "OfficeAreaRug", Size = Vector3.new(54, 0.14, 44), Position = Vector3.new(64, 0.07, -64), Color = Color3.fromRGB(48, 78, 115), Material = Enum.Material.Fabric, Parent = structureFolder })
+	part({ Name = "OfficeAreaRug", Size = Vector3.new(68, 0.14, 58), Position = Vector3.new(66, 0.07, -64), Color = Color3.fromRGB(48, 78, 115), Material = Enum.Material.Fabric, Parent = structureFolder })
 	part({ Name = "ArcadeFloor", Size = Vector3.new(102, 0.1, 102), Position = Vector3.new(-60, 0.05, 60), Color = Color3.fromRGB(44, 52, 74), Material = Enum.Material.Fabric, Parent = structureFolder })
 	part({ Name = "CenterCourtyardPad", Size = Vector3.new(56, 0.12, 56), Position = Vector3.new(0, 0.06, 0), Color = Color3.fromRGB(175, 170, 162), Material = Enum.Material.Marble, Parent = structureFolder })
 
@@ -1540,93 +1521,161 @@ local function buildMapGrandPlaza(structureFolder: Folder): { { Build: () -> Mod
 	local redBarrel = function() return createBarrelModel(Color3.fromRGB(195, 55, 50), Color3.fromRGB(245, 195, 45)) end
 	local greenBarrel = function() return createBarrelModel(Color3.fromRGB(55, 145, 80), Color3.fromRGB(240, 240, 240)) end
 
-	local baseProps = {
-		{ Build = createBookshelfModel, Pos = Vector3.new(14, 0, -56), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(21, 0, -56), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(28, 0, -56), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(35, 0, -56), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(56, 0, -44), Yaw = -90 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(56, 0, -37), Yaw = -90 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(22, 0, -38), Yaw = 0 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(45, 115, 195)) end, Pos = Vector3.new(22, 0, -34), Yaw = 180 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(36, 0, -38), Yaw = 0 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(45, 115, 195)) end, Pos = Vector3.new(36, 0, -34), Yaw = 180 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(22, 0, -22), Yaw = 180 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(50, 55, 65)) end, Pos = Vector3.new(22, 0, -26), Yaw = 0 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(36, 0, -22), Yaw = 180 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(185, 60, 65)) end, Pos = Vector3.new(36, 0, -26), Yaw = 0 },
-		{ Build = createFilingCabinetModel, Pos = Vector3.new(8, 0, -52), Yaw = 90 },
-		{ Build = createFilingCabinetModel, Pos = Vector3.new(8, 0, -48), Yaw = 90 },
-		{ Build = createWaterCoolerModel, Pos = Vector3.new(8, 0, -26), Yaw = 90 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(9, 0, -56), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(55, 0, -55), Yaw = 45 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(27, 0, -38), Yaw = 0 },
-		{ Build = createFloorLampModel, Pos = Vector3.new(52, 0, -24), Yaw = 0 },
+	local props: { { Build: () -> Model, Pos: Vector3, Yaw: number } } = {}
+	local function add(buildFn: () -> Model, x: number, z: number, yaw: number?)
+		table.insert(props, { Build = buildFn, Pos = Vector3.new(x, 0, z), Yaw = yaw or 0 })
+	end
 
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(165, 55, 245)) end, Pos = Vector3.new(-56, 0, 14), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(245, 70, 120)) end, Pos = Vector3.new(-56, 0, 19), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(55, 185, 250)) end, Pos = Vector3.new(-56, 0, 24), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(80, 225, 110)) end, Pos = Vector3.new(-56, 0, 29), Yaw = 90 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(210, 45, 55)) end, Pos = Vector3.new(-48, 0, 56), Yaw = 180 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(45, 125, 215)) end, Pos = Vector3.new(-42, 0, 56), Yaw = 180 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(-31, 0, 56), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(175, 58, 68)) end, Pos = Vector3.new(-28, 0, 22), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(58, 115, 168)) end, Pos = Vector3.new(-28, 0, 36), Yaw = 180 },
-		{ Build = createCafeTableModel, Pos = Vector3.new(-28, 0, 29), Yaw = 0 },
-		{ Build = createFloorLampModel, Pos = Vector3.new(-35, 0, 22), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(-55, 0, 55), Yaw = 0 },
-
-		{ Build = function() return createCrateModel(1.0) end, Pos = Vector3.new(-52, 0, -52), Yaw = 0 },
-		{ Build = function() return createCrateModel(1.0) end, Pos = Vector3.new(-47, 0, -52), Yaw = 8 },
-		{ Build = function() return createCrateModel(0.85) end, Pos = Vector3.new(-52, 0, -47), Yaw = -12 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(-48, 0, -32), Yaw = 10 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(-26, 0, -38), Yaw = -20 },
-		{ Build = redBarrel, Pos = Vector3.new(-40, 0, -52), Yaw = 0 },
-		{ Build = blueBarrel, Pos = Vector3.new(-36, 0, -50), Yaw = 0 },
-		{ Build = greenBarrel, Pos = Vector3.new(-39, 0, -47), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(-32, 0, -18), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(-18, 0, -18), Yaw = 0 },
-
-		{ Build = function() return createCrateModel(1.0) end, Pos = Vector3.new(52, 0, 52), Yaw = 0 },
-		{ Build = function() return createCrateModel(1.0) end, Pos = Vector3.new(47, 0, 52), Yaw = -10 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(44, 0, 28), Yaw = 0 },
-		{ Build = blueBarrel, Pos = Vector3.new(38, 0, 52), Yaw = 0 },
-		{ Build = redBarrel, Pos = Vector3.new(34, 0, 50), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(18, 0, 18), Yaw = 0 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(18, 0, 44), Yaw = 0 },
-
-		{ Build = createPlantPotModel, Pos = Vector3.new(-11, 0, -11), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(11, 0, -11), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(-11, 0, 11), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(11, 0, 11), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, Pos = Vector3.new(0, 0, -11), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, Pos = Vector3.new(0, 0, 11), Yaw = 180 },
+	-- 1. NE Office & Library Wing (~55 props)
+	for x = 22, 106, 12 do
+		add(createBookshelfModel, x, -114, 0)
+	end
+	for z = -102, -30, 12 do
+		add(createBookshelfModel, 114, z, -90)
+	end
+	local chairColors = {
+		Color3.fromRGB(45, 115, 195),
+		Color3.fromRGB(50, 55, 65),
+		Color3.fromRGB(185, 60, 65),
+		Color3.fromRGB(55, 145, 95),
 	}
+	local cIdx = 0
+	for _, x in { 32, 54, 76, 96 } do
+		for _, z in { -92, -68, -44 } do
+			cIdx += 1
+			local col = chairColors[(cIdx % #chairColors) + 1]
+			add(createComputerDeskModel, x, z, 0)
+			add(function() return createOfficeChairModel(col) end, x, z + 4, 180)
+			if cIdx % 2 == 0 then
+				add(createTrashBinModel, x + 5, z, 0)
+			else
+				add(createFilingCabinetModel, x - 5, z, 0)
+			end
+		end
+	end
+	for _, z in { -98, -86, -74, -52, -40 } do
+		add(createFilingCabinetModel, 15, z, 90)
+	end
+	add(createWaterCoolerModel, 15, -62, 90)
+	add(createWaterCoolerModel, 15, -24, 90)
+	add(createPlantPotModel, 18, -112, 0)
+	add(createPlantPotModel, 112, -112, 45)
+	add(createPlantPotModel, 112, -20, 0)
+	add(createFloorLampModel, 44, -22, 0)
+	add(createFloorLampModel, 88, -22, 0)
 
-	local extraOuter = {
-		{ Build = createComputerDeskModel, Pos = Vector3.new(86, 0, -82), Yaw = 0 },
-		{ Build = createOfficeChairModel, Pos = Vector3.new(86, 0, -76), Yaw = 180 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(86, 0, -54), Yaw = 180 },
-		{ Build = createOfficeChairModel, Pos = Vector3.new(86, 0, -60), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(108, 0, -96), Yaw = -90 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(108, 0, -62), Yaw = -90 },
-		{ Build = createCafeTableModel, Pos = Vector3.new(-76, 0, 82), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(165, 55, 85)) end, Pos = Vector3.new(-76, 0, 74), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(55, 125, 185)) end, Pos = Vector3.new(-76, 0, 90), Yaw = 180 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(-82, 0, -82), Yaw = 0 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(-62, 0, -86), Yaw = 25 },
-		{ Build = createCrateModel, Pos = Vector3.new(-102, 0, -68), Yaw = 15 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(78, 0, 82), Yaw = -15 },
-		{ Build = createCrateModel, Pos = Vector3.new(102, 0, 68), Yaw = 0 },
-		{ Build = redBarrel, Pos = Vector3.new(92, 0, 88), Yaw = 0 },
-		{ Build = blueBarrel, Pos = Vector3.new(-92, 0, -64), Yaw = 0 },
+	-- 2. SW Arcade & Cafe Lounge Wing (~52 props)
+	local arcadeColors = {
+		Color3.fromRGB(165, 55, 245),
+		Color3.fromRGB(245, 70, 120),
+		Color3.fromRGB(55, 185, 250),
+		Color3.fromRGB(80, 225, 110),
+		Color3.fromRGB(255, 195, 50),
 	}
+	for i, z in { 24, 34, 44, 54, 64, 74, 84, 94, 104 } do
+		local ac = arcadeColors[(i % #arcadeColors) + 1]
+		add(function() return createArcadeCabinetModel(ac) end, -114, z, 90)
+	end
+	for i, x in { -102, -92, -82, -72, -58, -48, -38, -28 } do
+		if i <= 4 then
+			local vc = if i % 2 == 0 then Color3.fromRGB(210, 45, 55) else Color3.fromRGB(45, 125, 215)
+			add(function() return createVendingMachineModel(vc) end, x, 114, 180)
+		else
+			local ac = arcadeColors[(i % #arcadeColors) + 1]
+			add(function() return createArcadeCabinetModel(ac) end, x, 114, 180)
+		end
+	end
+	for _, cx in { -86, -58, -32 } do
+		for _, cz in { 42, 78 } do
+			add(createCafeTableModel, cx, cz, 0)
+			add(function() return createSofaModel(Color3.fromRGB(175, 58, 68)) end, cx, cz - 7, 0)
+			add(function() return createSofaModel(Color3.fromRGB(58, 115, 168)) end, cx, cz + 7, 180)
+			add(createFloorLampModel, cx - 8, cz, 0)
+		end
+	end
+	add(createTrashBinModel, -64, 113, 0)
+	add(createTrashBinModel, -16, 48, 0)
+	add(createWaterCoolerModel, -16, 88, -90)
+	add(createPlantPotModel, -112, 112, 0)
+	add(createPlantPotModel, -18, 112, 0)
+	add(createPlantPotModel, -112, 18, 0)
 
-	return scaleAndMergePlacements(baseProps, extraOuter)
+	-- 3. NW Mega Warehouse Sector (~45 props)
+	for _, pos in {
+		{ -108, -108 }, { -100, -108 }, { -92, -108 }, { -108, -98 }, { -98, -98 },
+		{ -76, -108 }, { -68, -108 }, { -52, -108 }, { -44, -108 },
+		{ -108, -72 }, { -100, -72 }, { -108, -62 },
+		{ -48, -72 }, { -40, -72 }, { -78, -24 }, { -68, -24 },
+	} do
+		add(function() return createCrateModel(if (pos[1] + pos[2]) % 3 == 0 then 0.85 else 1.0) end, pos[1], pos[2], (pos[1] * 7) % 45)
+	end
+	for _, pPos in {
+		{ -84, -88 }, { -62, -88 }, { -38, -88 },
+		{ -88, -58 }, { -64, -58 }, { -34, -58 },
+		{ -96, -28 }, { -52, -26 }, { -28, -28 },
+	} do
+		add(createPalletStackModel, pPos[1], pPos[2], (pPos[1] * 5) % 30)
+	end
+	for idx, bPos in {
+		{ -108, -84 }, { -104, -82 }, { -108, -50 }, { -102, -48 },
+		{ -78, -102 }, { -74, -98 }, { -54, -96 }, { -30, -104 }, { -26, -100 },
+		{ -86, -32 }, { -42, -30 }, { -24, -44 },
+	} do
+		local bFn = if idx % 3 == 0 then redBarrel elseif idx % 3 == 1 then blueBarrel else greenBarrel
+		add(bFn, bPos[1], bPos[2], 0)
+	end
+	for _, cPos in { { -56, -16 }, { -36, -16 }, { -20, -32 }, { -92, -16 }, { -110, -38 } } do
+		add(createTrafficConeModel, cPos[1], cPos[2], 0)
+	end
+
+	-- 4. SE Logistics & Shipping Bay (~42 props)
+	for _, pos in {
+		{ 108, 108 }, { 100, 108 }, { 92, 108 }, { 108, 98 }, { 98, 98 },
+		{ 76, 108 }, { 68, 108 }, { 108, 76 }, { 108, 68 },
+		{ 62, 82 }, { 70, 82 }, { 26, 98 }, { 26, 90 }, { 84, 34 },
+	} do
+		add(function() return createCrateModel(1.0) end, pos[1], pos[2], (pos[2] * 7) % 35)
+	end
+	for _, pPos in {
+		{ 84, 88 }, { 58, 98 }, { 88, 56 }, { 62, 54 },
+		{ 98, 36 }, { 64, 28 }, { 26, 68 }, { 26, 44 },
+	} do
+		add(createPalletStackModel, pPos[1], pPos[2], (pPos[2] * 5) % 25)
+	end
+	for idx, bPos in {
+		{ 108, 86 }, { 104, 82 }, { 82, 104 }, { 54, 108 }, { 50, 104 },
+		{ 104, 48 }, { 98, 46 }, { 74, 42 }, { 52, 36 }, { 24, 80 }, { 28, 54 },
+	} do
+		local bFn = if idx % 3 == 0 then redBarrel elseif idx % 3 == 1 then blueBarrel else greenBarrel
+		add(bFn, bPos[1], bPos[2], 0)
+	end
+	for _, cPos in { { 24, 24 }, { 38, 20 }, { 54, 18 }, { 82, 18 }, { 18, 38 } } do
+		add(createTrafficConeModel, cPos[1], cPos[2], 0)
+	end
+	add(createTrashBinModel, 34, 96, 0)
+	add(createTrashBinModel, 96, 22, 0)
+	add(createVendingMachineModel, 16, 108, 180)
+
+	-- 5. Central Atrium Courtyard & Crosswalk Corridors (~20 props)
+	for _, p in { { -18, -18 }, { 18, -18 }, { -18, 18 }, { 18, 18 }, { -38, -6 }, { 38, 6 }, { -6, -38 }, { 6, 38 } } do
+		add(createPlantPotModel, p[1], p[2], 0)
+	end
+	add(function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, 0, -16, 0)
+	add(function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, 0, 16, 180)
+	add(function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, -16, 0, 90)
+	add(function() return createSofaModel(Color3.fromRGB(70, 78, 92)) end, 16, 0, -90)
+	add(createCafeTableModel, -12, -12, 0)
+	add(createCafeTableModel, 12, 12, 0)
+	add(createTrashBinModel, -20, 8, 0)
+	add(createTrashBinModel, 20, -8, 0)
+	add(createFloorLampModel, -18, -10, 0)
+	add(createFloorLampModel, 18, 10, 0)
+
+	return props
 end
 
 --------------------------------------------------------------------------------
--- MAP 2: CYBERPUNK NEON MALL (240x240 — Night Mall, Server Core & Cyber Lounge)
+-- MAP 2: CYBERPUNK NEON MALL (240x240 — Dense Night Mall, Server Core & Cyber Lounge)
 --------------------------------------------------------------------------------
 local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1675,75 +1724,116 @@ local function buildMapCyberpunkMall(structureFolder: Folder): { { Build: () -> 
 	local cyberBarrelPink = function() return createBarrelModel(Color3.fromRGB(30, 34, 46), Color3.fromRGB(235, 55, 185), true) end
 	local cyberCrate = function() return createCrateModel(1.0, Color3.fromRGB(38, 44, 62), Color3.fromRGB(0, 185, 235)) end
 
-	local baseProps = {
-		{ Build = cyanServer, Pos = Vector3.new(24, 0, -52), Yaw = 0 },
-		{ Build = pinkServer, Pos = Vector3.new(30, 0, -52), Yaw = 0 },
-		{ Build = cyanServer, Pos = Vector3.new(36, 0, -52), Yaw = 0 },
-		{ Build = pinkServer, Pos = Vector3.new(42, 0, -52), Yaw = 0 },
-		{ Build = cyanServer, Pos = Vector3.new(52, 0, -38), Yaw = -90 },
-		{ Build = pinkServer, Pos = Vector3.new(52, 0, -30), Yaw = -90 },
-		{ Build = function() return createComputerDeskModel(Color3.fromRGB(255, 65, 200)) end, Pos = Vector3.new(28, 0, -34), Yaw = 0 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(165, 45, 225)) end, Pos = Vector3.new(28, 0, -30), Yaw = 180 },
-		{ Build = function() return createComputerDeskModel(Color3.fromRGB(0, 240, 255)) end, Pos = Vector3.new(40, 0, -24), Yaw = 180 },
-		{ Build = function() return createOfficeChairModel(Color3.fromRGB(0, 185, 235)) end, Pos = Vector3.new(40, 0, -28), Yaw = 0 },
+	local props: { { Build: () -> Model, Pos: Vector3, Yaw: number } } = {}
+	local function add(buildFn: () -> Model, x: number, z: number, yaw: number?)
+		table.insert(props, { Build = buildFn, Pos = Vector3.new(x, 0, z), Yaw = yaw or 0 })
+	end
 
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(0, 245, 255)) end, Pos = Vector3.new(-54, 0, 20), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(255, 55, 195)) end, Pos = Vector3.new(-54, 0, 25), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(165, 65, 255)) end, Pos = Vector3.new(-54, 0, 30), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(55, 255, 145)) end, Pos = Vector3.new(-54, 0, 35), Yaw = 90 },
-		{ Build = function() return createArcadeCabinetModel(Color3.fromRGB(255, 205, 45)) end, Pos = Vector3.new(-54, 0, 40), Yaw = 90 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(145, 35, 215)) end, Pos = Vector3.new(-46, 0, 54), Yaw = 180 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(0, 155, 215)) end, Pos = Vector3.new(-40, 0, 54), Yaw = 180 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(125, 35, 175)) end, Pos = Vector3.new(-30, 0, 24), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(25, 135, 195)) end, Pos = Vector3.new(-30, 0, 38), Yaw = 180 },
-		{ Build = createCafeTableModel, Pos = Vector3.new(-30, 0, 31), Yaw = 0 },
-		{ Build = function() return createFloorLampModel(Color3.fromRGB(255, 65, 215)) end, Pos = Vector3.new(-38, 0, 24), Yaw = 0 },
-		{ Build = function() return createFloorLampModel(Color3.fromRGB(0, 240, 255)) end, Pos = Vector3.new(-22, 0, 38), Yaw = 0 },
+	-- 1. NE Cyber Server Data Center (~52 props)
+	for i, x in { 34, 44, 54, 64, 74, 84, 94, 104 } do
+		add(if i % 2 == 0 then cyanServer else pinkServer, x, -112, 0)
+		add(if i % 2 == 1 then cyanServer else pinkServer, x, -88, 0)
+	end
+	for i, z in { -102, -92, -82, -72, -62, -52, -42 } do
+		add(if i % 2 == 0 then cyanServer else pinkServer, 112, z, -90)
+	end
+	for idx, x in { 42, 64, 86, 102 } do
+		for _, z in { -68, -44 } do
+			local scr = if idx % 2 == 0 then Color3.fromRGB(0, 235, 255) else Color3.fromRGB(255, 65, 200)
+			local chCol = if idx % 2 == 0 then Color3.fromRGB(0, 175, 225) else Color3.fromRGB(165, 45, 225)
+			add(function() return createComputerDeskModel(scr) end, x, z, 0)
+			add(function() return createOfficeChairModel(chCol) end, x, z + 4, 180)
+			add(createTrashBinModel, x + 5, z, 0)
+		end
+	end
+	add(function() return createVendingMachineModel(Color3.fromRGB(145, 35, 215)) end, 32, -104, 90)
+	add(function() return createVendingMachineModel(Color3.fromRGB(0, 155, 215)) end, 32, -96, 90)
+	add(function() return createFloorLampModel(Color3.fromRGB(0, 235, 255)) end, 34, -34, 0)
+	add(function() return createFloorLampModel(Color3.fromRGB(255, 65, 215)) end, 96, -34, 0)
 
-		{ Build = cyberCrate, Pos = Vector3.new(-50, 0, -50), Yaw = 0 },
-		{ Build = cyberCrate, Pos = Vector3.new(-45, 0, -50), Yaw = 15 },
-		{ Build = cyberCrate, Pos = Vector3.new(-50, 0, -44), Yaw = -10 },
-		{ Build = cyberBarrelCyan, Pos = Vector3.new(-36, 0, -48), Yaw = 0 },
-		{ Build = cyberBarrelPink, Pos = Vector3.new(-32, 0, -46), Yaw = 0 },
-		{ Build = cyberBarrelCyan, Pos = Vector3.new(-28, 0, -32), Yaw = 0 },
-		{ Build = cyanServer, Pos = Vector3.new(-48, 0, -24), Yaw = 90 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(-22, 0, -20), Yaw = 0 },
-
-		{ Build = cyberCrate, Pos = Vector3.new(50, 0, 50), Yaw = 0 },
-		{ Build = cyberCrate, Pos = Vector3.new(44, 0, 50), Yaw = -15 },
-		{ Build = cyberBarrelPink, Pos = Vector3.new(36, 0, 48), Yaw = 0 },
-		{ Build = cyberBarrelCyan, Pos = Vector3.new(32, 0, 45), Yaw = 0 },
-		{ Build = pinkServer, Pos = Vector3.new(48, 0, 26), Yaw = -90 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(225, 45, 145)) end, Pos = Vector3.new(26, 0, 52), Yaw = 180 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(20, 0, 52), Yaw = 0 },
-
-		{ Build = function() return createPlantPotModel(Color3.fromRGB(0, 225, 185)) end, Pos = Vector3.new(-12, 0, -12), Yaw = 0 },
-		{ Build = function() return createPlantPotModel(Color3.fromRGB(235, 65, 195)) end, Pos = Vector3.new(12, 0, -12), Yaw = 0 },
-		{ Build = function() return createPlantPotModel(Color3.fromRGB(235, 65, 195)) end, Pos = Vector3.new(-12, 0, 12), Yaw = 0 },
-		{ Build = function() return createPlantPotModel(Color3.fromRGB(0, 225, 185)) end, Pos = Vector3.new(12, 0, 12), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, Pos = Vector3.new(0, 0, -10), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, Pos = Vector3.new(0, 0, 10), Yaw = 180 },
+	-- 2. SW Cyber Arcade & Neon Lounge (~54 props)
+	local neonArcades = {
+		Color3.fromRGB(0, 245, 255),
+		Color3.fromRGB(255, 55, 195),
+		Color3.fromRGB(165, 65, 255),
+		Color3.fromRGB(55, 255, 145),
+		Color3.fromRGB(255, 205, 45),
 	}
+	for i, z in { 34, 42, 50, 58, 66, 74, 82, 90, 98, 106 } do
+		local c = neonArcades[(i % #neonArcades) + 1]
+		add(function() return createArcadeCabinetModel(c) end, -112, z, 90)
+	end
+	for i, x in { -104, -96, -88, -80, -72, -64, -52, -44, -36 } do
+		if i <= 5 then
+			local c = neonArcades[(i % #neonArcades) + 1]
+			add(function() return createArcadeCabinetModel(c) end, x, 112, 180)
+		else
+			local vc = if i % 2 == 0 then Color3.fromRGB(145, 35, 215) else Color3.fromRGB(0, 155, 215)
+			add(function() return createVendingMachineModel(vc) end, x, 112, 180)
+		end
+	end
+	for _, cx in { -90, -64, -38 } do
+		for _, cz in { 48, 82 } do
+			add(createCafeTableModel, cx, cz, 0)
+			add(function() return createSofaModel(Color3.fromRGB(125, 35, 175)) end, cx, cz - 7, 0)
+			add(function() return createSofaModel(Color3.fromRGB(25, 135, 195)) end, cx, cz + 7, 180)
+			add(function() return createFloorLampModel(Color3.fromRGB(255, 65, 215)) end, cx - 8, cz, 0)
+		end
+	end
+	add(createTrashBinModel, -58, 112, 0)
+	add(createTrashBinModel, -30, 112, 0)
+	add(function() return createPlantPotModel(Color3.fromRGB(0, 225, 185)) end, -108, 30, 0)
+	add(function() return createPlantPotModel(Color3.fromRGB(235, 65, 195)) end, -32, 32, 0)
 
-	local extraOuter = {
-		{ Build = cyanServer, Pos = Vector3.new(86, 0, -78), Yaw = 0 },
-		{ Build = pinkServer, Pos = Vector3.new(96, 0, -78), Yaw = 0 },
-		{ Build = cyanServer, Pos = Vector3.new(-78, 0, -78), Yaw = 0 },
-		{ Build = pinkServer, Pos = Vector3.new(-88, 0, -78), Yaw = 0 },
-		{ Build = cyberCrate, Pos = Vector3.new(-72, 0, -56), Yaw = 20 },
-		{ Build = cyberCrate, Pos = Vector3.new(72, 0, 72), Yaw = -20 },
-		{ Build = cyberBarrelCyan, Pos = Vector3.new(84, 0, 62), Yaw = 0 },
-		{ Build = cyberBarrelPink, Pos = Vector3.new(-82, 0, 82), Yaw = 0 },
-		{ Build = createCafeTableModel, Pos = Vector3.new(-74, 0, 60), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(125, 35, 175)) end, Pos = Vector3.new(-74, 0, 52), Yaw = 0 },
-		{ Build = function() return createSofaModel(Color3.fromRGB(25, 135, 195)) end, Pos = Vector3.new(-74, 0, 68), Yaw = 180 },
-	}
+	-- 3. NW & SE Cyber Cargo Sectors (~65 props)
+	for _, mult in { -1, 1 } do
+		-- mult = -1 is NW (-X, -Z), mult = 1 is SE (+X, +Z)
+		for _, pos in {
+			{ 106, 106 }, { 98, 106 }, { 90, 106 }, { 106, 96 }, { 96, 96 },
+			{ 76, 106 }, { 68, 106 }, { 106, 74 }, { 106, 66 },
+			{ 82, 74 }, { 74, 74 }, { 52, 92 }, { 44, 92 }, { 88, 44 },
+		} do
+			add(cyberCrate, pos[1] * mult, pos[2] * mult, (pos[1] * 9) % 40)
+		end
+		for idx, bPos in {
+			{ 106, 84 }, { 102, 80 }, { 84, 98 }, { 60, 104 }, { 56, 100 },
+			{ 96, 56 }, { 92, 52 }, { 68, 56 }, { 64, 52 }, { 38, 78 }, { 34, 74 }, { 42, 46 },
+		} do
+			add(if idx % 2 == 0 then cyberBarrelCyan else cyberBarrelPink, bPos[1] * mult, bPos[2] * mult, 0)
+		end
+		for _, pPos in { { 86, 86 }, { 62, 74 }, { 42, 62 }, { 76, 38 } } do
+			add(createPalletStackModel, pPos[1] * mult, pPos[2] * mult, 15 * mult)
+		end
+		for i, sPos in { { 108, 36 }, { 108, 44 }, { 36, 108 }, { 44, 108 } } do
+			add(if i % 2 == 0 then cyanServer else pinkServer, sPos[1] * mult, sPos[2] * mult, if sPos[1] > sPos[2] then -90 * mult else 0)
+		end
+		add(createTrafficConeModel, 28 * mult, 28 * mult, 0)
+		add(createTrafficConeModel, 48 * mult, 22 * mult, 0)
+		add(createTrashBinModel, 22 * mult, 52 * mult, 0)
+	end
 
-	return scaleAndMergePlacements(baseProps, extraOuter)
+	-- 4. Center Neon Plaza & Corridors (~22 props)
+	for _, p in {
+		{ -18, -18 }, { 18, -18 }, { -18, 18 }, { 18, 18 },
+		{ -42, 0 }, { 42, 0 }, { 0, -42 }, { 0, 42 },
+	} do
+		local col = if (p[1] + p[2]) % 4 == 0 then Color3.fromRGB(0, 225, 185) else Color3.fromRGB(235, 65, 195)
+		add(function() return createPlantPotModel(col) end, p[1], p[2], 0)
+	end
+	add(function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, 0, -15, 0)
+	add(function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, 0, 15, 180)
+	add(function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, -15, 0, 90)
+	add(function() return createSofaModel(Color3.fromRGB(45, 52, 82)) end, 15, 0, -90)
+	add(createCafeTableModel, -12, -12, 0)
+	add(createCafeTableModel, 12, 12, 0)
+	add(function() return createVendingMachineModel(Color3.fromRGB(225, 45, 145)) end, 14, -48, 90)
+	add(function() return createVendingMachineModel(Color3.fromRGB(0, 165, 225)) end, -14, 48, -90)
+
+	return props
 end
 
 --------------------------------------------------------------------------------
--- MAP 3: HIGH SCHOOL CAMPUS (240x240 — Classrooms, Cafeteria, Gym & Library)
+-- MAP 3: HIGH SCHOOL CAMPUS (240x240 — Dense Classrooms, Cafeteria, Gym & Library)
 --------------------------------------------------------------------------------
 local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1761,7 +1851,7 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 	part({ Name = "CafeteriaFloor", Size = Vector3.new(98, 0.1, 98), Position = Vector3.new(-60, 0.05, 60), Color = Color3.fromRGB(135, 165, 185), Material = Enum.Material.Marble, Parent = structureFolder })
 
 	-- Classroom Green Chalkboard on North Wall
-	part({ Name = "Chalkboard", Size = Vector3.new(38, 8, 0.4), Position = Vector3.new(60, 10, -118.5), Color = Color3.fromRGB(38, 88, 56), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
+	part({ Name = "Chalkboard", Size = Vector3.new(44, 8, 0.4), Position = Vector3.new(64, 10, -118.5), Color = Color3.fromRGB(38, 88, 56), Material = Enum.Material.SmoothPlastic, Parent = structureFolder })
 
 	-- School Hallway Partition Walls
 	for i, iw in {
@@ -1776,72 +1866,114 @@ local function buildMapSchoolCampus(structureFolder: Folder): { { Build: () -> M
 	local blueLocker = function() return createSchoolLockerModel(Color3.fromRGB(48, 118, 195)) end
 	local redLocker = function() return createSchoolLockerModel(Color3.fromRGB(195, 58, 58)) end
 
-	local baseProps = {
-		{ Build = createComputerDeskModel, Pos = Vector3.new(32, 0, -50), Yaw = 180 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(22, 0, -38), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(32, 0, -38), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(42, 0, -38), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(22, 0, -28), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(32, 0, -28), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(42, 0, -28), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(22, 0, -18), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(32, 0, -18), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(42, 0, -18), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(55, 0, -42), Yaw = -90 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(55, 0, -32), Yaw = -90 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(14, 0, -52), Yaw = 0 },
-		{ Build = createWaterCoolerModel, Pos = Vector3.new(52, 0, -14), Yaw = 180 },
+	local props: { { Build: () -> Model, Pos: Vector3, Yaw: number } } = {}
+	local function add(buildFn: () -> Model, x: number, z: number, yaw: number?)
+		table.insert(props, { Build = buildFn, Pos = Vector3.new(x, 0, z), Yaw = yaw or 0 })
+	end
 
-		{ Build = blueLocker, Pos = Vector3.new(-16, 0, -56), Yaw = 0 },
-		{ Build = blueLocker, Pos = Vector3.new(-22, 0, -56), Yaw = 0 },
-		{ Build = redLocker, Pos = Vector3.new(-28, 0, -56), Yaw = 0 },
-		{ Build = redLocker, Pos = Vector3.new(-34, 0, -56), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(-54, 0, -44), Yaw = 90 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(-54, 0, -34), Yaw = 90 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(-54, 0, -24), Yaw = 90 },
-		{ Build = createComputerDeskModel, Pos = Vector3.new(-34, 0, -34), Yaw = 0 },
-		{ Build = createOfficeChairModel, Pos = Vector3.new(-34, 0, -30), Yaw = 180 },
-		{ Build = createFilingCabinetModel, Pos = Vector3.new(-48, 0, -54), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(-12, 0, -14), Yaw = 0 },
+	-- 1. NE Lecture Classrooms (~50 props: 30 student desks in 6x5 grid + teacher desks + bookshelves)
+	add(createComputerDeskModel, 48, -108, 180)
+	add(createOfficeChairModel, 48, -113, 0)
+	add(createComputerDeskModel, 82, -108, 180)
+	add(createOfficeChairModel, 82, -113, 0)
+	for _, x in { 28, 42, 56, 72, 86, 100 } do
+		for _, z in { -92, -78, -64, -50, -34 } do
+			add(createSchoolDeskModel, x, z, 0)
+		end
+	end
+	for _, z in { -102, -88, -74, -60, -46, -32 } do
+		add(createBookshelfModel, 113, z, -90)
+	end
+	for _, z in { -98, -86, -74, -62 } do
+		add(createFilingCabinetModel, 17, z, 90)
+	end
+	add(createTrashBinModel, 22, -108, 0)
+	add(createTrashBinModel, 106, -108, 0)
+	add(createWaterCoolerModel, 106, -22, 180)
+	add(createPlantPotModel, 20, -22, 0)
 
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 22), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-24, 0, 22), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 38), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-24, 0, 38), Yaw = 0 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(210, 45, 55)) end, Pos = Vector3.new(-52, 0, 54), Yaw = 180 },
-		{ Build = function() return createVendingMachineModel(Color3.fromRGB(45, 135, 220)) end, Pos = Vector3.new(-46, 0, 54), Yaw = 180 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(-40, 0, 54), Yaw = 0 },
-		{ Build = createWaterCoolerModel, Pos = Vector3.new(-14, 0, 52), Yaw = 180 },
+	-- 2. NW School Library & Locker Corridors (~52 props)
+	for i, x in { -104, -96, -88, -80, -72, -64, -56, -48, -40, -32, -24 } do
+		add(if i % 2 == 0 then blueLocker else redLocker, x, -114, 0)
+	end
+	for _, z in { -102, -90, -78, -66, -54, -42, -30 } do
+		add(createBookshelfModel, -113, z, 90)
+	end
+	for _, x in { -88, -64, -40 } do
+		add(createBookshelfModel, x, -88, 0)
+		add(createBookshelfModel, x, -64, 0)
+		add(createComputerDeskModel, x, -42, 0)
+		add(createOfficeChairModel, x, -37, 180)
+		add(createSchoolDeskModel, x, -24, 0)
+	end
+	for _, z in { -96, -88, -80, -72, -64, -56, -48 } do
+		add(if z % 16 == 0 then blueLocker else redLocker, 7, z, -90)
+	end
+	add(createFilingCabinetModel, -102, -104, 0)
+	add(createFilingCabinetModel, -96, -104, 0)
+	add(createTrashBinModel, -22, -104, 0)
+	add(createWaterCoolerModel, -22, -22, 0)
+	add(createPlantPotModel, -104, -20, 0)
 
-		{ Build = redLocker, Pos = Vector3.new(54, 0, 18), Yaw = -90 },
-		{ Build = redLocker, Pos = Vector3.new(54, 0, 24), Yaw = -90 },
-		{ Build = blueLocker, Pos = Vector3.new(54, 0, 30), Yaw = -90 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(22, 0, 22), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(38, 0, 22), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(22, 0, 42), Yaw = 0 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(38, 0, 42), Yaw = 0 },
-		{ Build = createCrateModel, Pos = Vector3.new(48, 0, 50), Yaw = 12 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(16, 0, 50), Yaw = 0 },
-	}
+	-- 3. SW School Cafeteria & Food Court (~46 props)
+	for _, x in { -96, -76, -56, -36 } do
+		for _, z in { 34, 56, 78, 96 } do
+			add(createPicnicTableModel, x, z, 0)
+		end
+	end
+	for i, x in { -104, -96, -88, -80, -72, -64 } do
+		local vc = if i % 2 == 0 then Color3.fromRGB(210, 45, 55) else Color3.fromRGB(45, 135, 220)
+		add(function() return createVendingMachineModel(vc) end, x, 113, 180)
+	end
+	for _, z in { 32, 48, 64, 80, 96 } do
+		add(createTrashBinModel, -112, z, 90)
+	end
+	for _, z in { 44, 68, 92 } do
+		add(createWaterCoolerModel, -17, z, -90)
+	end
+	add(createCafeTableModel, -24, 34, 0)
+	add(createCafeTableModel, -24, 88, 0)
+	add(createPlantPotModel, -108, 20, 0)
+	add(createPlantPotModel, -22, 110, 0)
 
-	local extraOuter = {
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -70), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -52), Yaw = 0 },
-		{ Build = createSchoolDeskModel, Pos = Vector3.new(92, 0, -34), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(-76, 0, -82), Yaw = 0 },
-		{ Build = createBookshelfModel, Pos = Vector3.new(-58, 0, -82), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-92, 0, 42), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-92, 0, 72), Yaw = 0 },
-		{ Build = blueLocker, Pos = Vector3.new(108, 0, 68), Yaw = -90 },
-		{ Build = redLocker, Pos = Vector3.new(108, 0, 76), Yaw = -90 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(84, 0, 88), Yaw = 0 },
-	}
+	-- 4. SE Gymnasium & Athletics Equipment Bay (~48 props)
+	for i, z in { 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104 } do
+		add(if i % 2 == 0 then redLocker else blueLocker, 113, z, -90)
+	end
+	for i, x in { 24, 32, 40, 48, 56, 64, 72, 80 } do
+		add(if i % 2 == 0 then blueLocker else redLocker, x, 113, 180)
+	end
+	for _, x in { 34, 54, 74, 94 } do
+		for _, z in { 34, 56, 78 } do
+			add(createTrafficConeModel, x, z, 0)
+		end
+	end
+	for _, pos in { { 96, 94 }, { 88, 94 }, { 96, 86 }, { 26, 94 }, { 26, 86 }, { 56, 96 } } do
+		add(createCrateModel, pos[1], pos[2], 15)
+	end
+	add(createPalletStackModel, 82, 96, 0)
+	add(createPalletStackModel, 38, 96, -15)
+	add(createPicnicTableModel, 24, 44, 90)
+	add(createPicnicTableModel, 24, 68, 90)
+	add(createWaterCoolerModel, 18, 26, 90)
+	add(createTrashBinModel, 18, 82, 90)
 
-	return scaleAndMergePlacements(baseProps, extraOuter)
+	-- 5. Central School Courtyard (~14 props)
+	for _, p in { { -18, -18 }, { 18, -18 }, { -18, 18 }, { 18, 18 } } do
+		add(createPlantPotModel, p[1], p[2], 0)
+	end
+	add(createPicnicTableModel, -14, 0, 90)
+	add(createPicnicTableModel, 14, 0, 90)
+	add(createPicnicTableModel, 0, -14, 0)
+	add(createPicnicTableModel, 0, 14, 0)
+	add(createTrashBinModel, -8, -8, 0)
+	add(createTrashBinModel, 8, 8, 0)
+
+	return props
 end
 
 --------------------------------------------------------------------------------
--- MAP 4: SUNSET CAMPING PARK (240x240 — Forest Tents, Campfires, Picnic Tables & Pines)
+-- MAP 4: SUNSET CAMPING PARK (240x240 — Dense Forest Tents, Campfires, Picnic Tables & Pines)
 --------------------------------------------------------------------------------
 local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Model, Pos: Vector3, Yaw: number } }
 	buildArenaShell(
@@ -1873,67 +2005,89 @@ local function buildMapCampingPark(structureFolder: Folder): { { Build: () -> Mo
 	local blueTent = function() return createCampingTentModel(Color3.fromRGB(55, 135, 215)) end
 	local redTent = function() return createCampingTentModel(Color3.fromRGB(205, 65, 65)) end
 	local greenBarrel = function() return createBarrelModel(Color3.fromRGB(55, 135, 72), Color3.fromRGB(220, 195, 135)) end
+	local brownBarrel = function() return createBarrelModel(Color3.fromRGB(125, 82, 48), Color3.fromRGB(215, 185, 115)) end
 
-	local baseProps = {
-		{ Build = createCampfireModel, Pos = Vector3.new(0, 0, -8), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-10, 0, 0), Yaw = 90 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(10, 0, 0), Yaw = 90 },
+	local props: { { Build: () -> Model, Pos: Vector3, Yaw: number } } = {}
+	local function add(buildFn: () -> Model, x: number, z: number, yaw: number?)
+		table.insert(props, { Build = buildFn, Pos = Vector3.new(x, 0, z), Yaw = yaw or 0 })
+	end
 
-		{ Build = orangeTent, Pos = Vector3.new(26, 0, -44), Yaw = 25 },
-		{ Build = greenTent, Pos = Vector3.new(44, 0, -42), Yaw = -20 },
-		{ Build = blueTent, Pos = Vector3.new(46, 0, -24), Yaw = 110 },
-		{ Build = createCampfireModel, Pos = Vector3.new(34, 0, -32), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(24, 0, -24), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(52, 0, -52), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(16, 0, -52), Yaw = 15 },
-		{ Build = createCrateModel, Pos = Vector3.new(50, 0, -16), Yaw = 0 },
+	-- 1. Perimeter & Quadrant Pine Forest Groves (~64 Pine Trees!)
+	for _, coord in {
+		-- North & South Forest Borders
+		{ -108, -108 }, { -88, -110 }, { -68, -108 }, { -48, -110 }, { -28, -108 },
+		{ 28, -108 }, { 48, -110 }, { 68, -108 }, { 88, -110 }, { 108, -108 },
+		{ -108, 108 }, { -88, 110 }, { -68, 108 }, { -48, 110 }, { -28, 108 },
+		{ 28, 108 }, { 48, 110 }, { 68, 108 }, { 88, 110 }, { 108, 108 },
+		-- West & East Forest Borders
+		{ -110, -88 }, { -108, -68 }, { -110, -48 }, { -108, -28 },
+		{ -110, 28 }, { -108, 48 }, { -110, 68 }, { -108, 88 },
+		{ 110, -88 }, { 108, -68 }, { 110, -48 }, { 108, -28 },
+		{ 110, 28 }, { 108, 48 }, { 110, 68 }, { 108, 88 },
+		-- Inner Woods Clusters across all 4 Quadrants
+		{ -92, -92 }, { -74, -94 }, { -54, -92 }, { -94, -72 }, { -76, -74 }, { -92, -52 }, { -34, -88 },
+		{ 92, -92 }, { 74, -94 }, { 54, -92 }, { 94, -52 }, { 34, -88 },
+		{ -92, 92 }, { -74, 94 }, { -94, 52 }, { -34, 88 },
+		{ 92, 92 }, { 74, 94 }, { 54, 92 }, { 94, 72 }, { 76, 74 }, { 92, 52 }, { 34, 88 },
+	} do
+		add(createPineTreeModel, coord[1], coord[2], (coord[1] * 13 + coord[2] * 7) % 360)
+	end
 
-		{ Build = createPineTreeModel, Pos = Vector3.new(-50, 0, -50), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-36, 0, -52), Yaw = 30 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-52, 0, -34), Yaw = 45 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-22, 0, -46), Yaw = 10 },
-		{ Build = redTent, Pos = Vector3.new(-38, 0, -36), Yaw = -35 },
-		{ Build = createCampfireModel, Pos = Vector3.new(-30, 0, -28), Yaw = 0 },
-		{ Build = createCrateModel, Pos = Vector3.new(-48, 0, -20), Yaw = 0 },
-		{ Build = createPalletStackModel, Pos = Vector3.new(-42, 0, -20), Yaw = 15 },
-		{ Build = greenBarrel, Pos = Vector3.new(-20, 0, -24), Yaw = 0 },
+	-- 2. Four Major Tent & Campfire Villages (NE, NW, SE, SW — ~68 props)
+	local tents = { orangeTent, greenTent, blueTent, redTent }
+	for qIdx, quad in { { 1, -1 }, { -1, -1 }, { 1, 1 }, { -1, 1 } } do
+		local sx, sz = quad[1], quad[2]
+		-- Two Campfire Circles per Quadrant
+		add(createCampfireModel, 58 * sx, 58 * sz, 0)
+		add(createCampfireModel, 84 * sx, 42 * sz, 0)
 
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 26), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-26, 0, 26), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-42, 0, 44), Yaw = 0 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(-26, 0, 44), Yaw = 0 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(-16, 0, 22), Yaw = 0 },
-		{ Build = createTrashBinModel, Pos = Vector3.new(-52, 0, 35), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-52, 0, 52), Yaw = 0 },
-		{ Build = createPlantPotModel, Pos = Vector3.new(-18, 0, 50), Yaw = 0 },
-		{ Build = createFloorLampModel, Pos = Vector3.new(-34, 0, 35), Yaw = 0 },
+		-- Tents pitched around each quadrant
+		add(tents[((qIdx + 0) % 4) + 1], 44 * sx, 72 * sz, 25 * sx)
+		add(tents[((qIdx + 1) % 4) + 1], 72 * sx, 74 * sz, -35 * sz)
+		add(tents[((qIdx + 2) % 4) + 1], 76 * sx, 46 * sz, 60 * sx)
+		add(tents[((qIdx + 3) % 4) + 1], 96 * sx, 36 * sz, -20 * sz)
+		add(tents[((qIdx + 1) % 4) + 1], 36 * sx, 46 * sz, 45 * sx)
 
-		{ Build = blueTent, Pos = Vector3.new(28, 0, 46), Yaw = -15 },
-		{ Build = orangeTent, Pos = Vector3.new(46, 0, 42), Yaw = 40 },
-		{ Build = greenTent, Pos = Vector3.new(44, 0, 24), Yaw = -60 },
-		{ Build = createCampfireModel, Pos = Vector3.new(34, 0, 32), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(52, 0, 52), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(20, 0, 52), Yaw = 20 },
-		{ Build = greenBarrel, Pos = Vector3.new(22, 0, 22), Yaw = 0 },
-		{ Build = createCrateModel, Pos = Vector3.new(26, 0, 22), Yaw = 12 },
-		{ Build = createTrafficConeModel, Pos = Vector3.new(16, 0, 16), Yaw = 0 },
-	}
+		-- Picnic Tables & Camp Supplies per Quadrant
+		add(createPicnicTableModel, 46 * sx, 56 * sz, 0)
+		add(createPicnicTableModel, 60 * sx, 42 * sz, 90)
+		add(createPicnicTableModel, 84 * sx, 62 * sz, 0)
+		add(createPicnicTableModel, 36 * sx, 78 * sz, 0)
 
-	local extraOuter = {
-		{ Build = createPineTreeModel, Pos = Vector3.new(104, 0, -104), Yaw = 0 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-104, 0, -104), Yaw = 25 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-104, 0, 104), Yaw = 15 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(104, 0, 104), Yaw = 40 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(72, 0, -102), Yaw = 10 },
-		{ Build = createPineTreeModel, Pos = Vector3.new(-72, 0, 102), Yaw = 20 },
-		{ Build = orangeTent, Pos = Vector3.new(-82, 0, -56), Yaw = 35 },
-		{ Build = greenTent, Pos = Vector3.new(92, 0, -68), Yaw = -45 },
-		{ Build = redTent, Pos = Vector3.new(92, 0, 68), Yaw = 120 },
-		{ Build = createPicnicTableModel, Pos = Vector3.new(68, 0, 48), Yaw = 0 },
-		{ Build = createCampfireModel, Pos = Vector3.new(-68, 0, 62), Yaw = 0 },
-	}
+		add(createCrateModel, 52 * sx, 84 * sz, 15 * sx)
+		add(createCrateModel, 46 * sx, 84 * sz, -10 * sz)
+		add(createPalletStackModel, 64 * sx, 86 * sz, 20 * sx)
+		add(greenBarrel, 30 * sx, 34 * sz, 0)
+		add(brownBarrel, 34 * sx, 30 * sz, 0)
+		add(createTrashBinModel, 28 * sx, 54 * sz, 0)
+		add(createFloorLampModel, 48 * sx, 46 * sz, 0)
+	end
 
-	return scaleAndMergePlacements(baseProps, extraOuter)
+	-- 3. Central Stone Campfire Plaza & Crosswalk Paths (~28 props)
+	add(createCampfireModel, 0, -12, 0)
+	add(createCampfireModel, 0, 12, 0)
+	add(createPicnicTableModel, -14, 0, 90)
+	add(createPicnicTableModel, 14, 0, 90)
+	add(createPicnicTableModel, -14, -14, 45)
+	add(createPicnicTableModel, 14, -14, -45)
+	add(createPicnicTableModel, -14, 14, -45)
+	add(createPicnicTableModel, 14, 14, 45)
+
+	for _, pos in {
+		{ -12, -38 }, { 12, -38 }, { -12, -68 }, { 12, -68 }, { -12, -96 }, { 12, -96 },
+		{ -12, 38 }, { 12, 38 }, { -12, 68 }, { 12, 68 }, { -12, 96 }, { 12, 96 },
+		{ -38, -12 }, { -38, 12 }, { 38, -12 }, { 38, 12 },
+	} do
+		if (pos[1] + pos[2]) % 3 == 0 then
+			add(createPlantPotModel, pos[1], pos[2], 0)
+		elseif (pos[1] + pos[2]) % 2 == 0 then
+			add(createTrashBinModel, pos[1], pos[2], 0)
+		else
+			add(createTrafficConeModel, pos[1], pos[2], 0)
+		end
+	end
+
+	return props
 end
 
 --------------------------------------------------------------------------------

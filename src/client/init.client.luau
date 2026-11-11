@@ -1,0 +1,3 @@
+--!strict
+-- StarterPlayerScripts/Client/init.client.luau
+-- Client entry point (individual feature scripts run alongside this in StarterPlayerScripts.Client)

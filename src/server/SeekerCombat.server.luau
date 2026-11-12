@@ -18,6 +18,7 @@ local MAX_ATTACK_DISTANCE = 10 -- 10 studs max range
 local ATTACK_COOLDOWN = 1.0 -- 1-second server cooldown
 local HIDER_HIT_DAMAGE = 50 -- Case A: Damage dealt to a Hider
 local SEEKER_MISS_PENALTY = 15 -- Case B: Health penalty when hitting a real Morphable object
+local SEEKER_KILL_BOUNTY_COINS = 15 -- Coins awarded to Seeker per Hider eliminated
 
 local MORPH_TAG = "Morphable"
 local SEEKERS_TEAM_NAME = "Seekers"
@@ -86,6 +87,81 @@ local function isRealMorphableProp(hitInstance: Instance): boolean
 	return false
 end
 
+-- Helper: Equip a procedural Neon Scanner Bat Tool when a player spawns on the Seekers team
+local function giveSeekerBatonTool(player: Player, character: Model)
+	local seekersTeam = Teams:FindFirstChild(SEEKERS_TEAM_NAME)
+	if not seekersTeam or player.Team ~= seekersTeam then
+		return
+	end
+
+	if character:FindFirstChild("SeekerScannerBaton") then
+		return
+	end
+
+	local tool = Instance.new("Tool")
+	tool.Name = "SeekerScannerBaton"
+	tool.ToolTip = "คลิกซ้ายเพื่อโจมตี Prop ที่สงสัย!"
+	tool.RequiresHandle = true
+	tool.CanBeDropped = false
+
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(0.4, 3.2, 0.4)
+	handle.Color = Color3.fromRGB(35, 38, 48)
+	handle.Material = Enum.Material.Metal
+	handle.CanCollide = false
+	handle.CanQuery = false
+	handle.Massless = true
+	handle.Parent = tool
+
+	local neonTip = Instance.new("Part")
+	neonTip.Name = "NeonTip"
+	neonTip.Size = Vector3.new(0.5, 1.4, 0.5)
+	neonTip.Color = Color3.fromRGB(255, 65, 85)
+	neonTip.Material = Enum.Material.Neon
+	neonTip.CanCollide = false
+	neonTip.CanQuery = false
+	neonTip.Massless = true
+	neonTip.CFrame = handle.CFrame * CFrame.new(0, 1.1, 0)
+	neonTip.Parent = tool
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = handle
+	weld.Part1 = neonTip
+	weld.Parent = neonTip
+
+	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
+	if humanoid and player.Team == seekersTeam then
+		tool.Parent = character
+	end
+end
+
+Players.PlayerAdded:Connect(function(player: Player)
+	player.CharacterAdded:Connect(function(character: Model)
+		task.delay(0.15, function()
+			giveSeekerBatonTool(player, character)
+		end)
+	end)
+end)
+for _, p in Players:GetPlayers() do
+	p.CharacterAdded:Connect(function(character: Model)
+		task.delay(0.15, function()
+			giveSeekerBatonTool(p, character)
+		end)
+	end)
+end
+
+-- Helper: Play 3D sound at position
+local function play3DSound(parentPart: BasePart, soundId: string, pitch: number, volume: number)
+	local s = Instance.new("Sound")
+	s.SoundId = soundId
+	s.PlaybackSpeed = pitch
+	s.Volume = volume
+	s.RollOffMaxDistance = 55
+	s.Parent = parentPart
+	s:Play()
+	Debris:AddItem(s, 2.5)
+end
 -- Helper: Play a brief hit Highlight effect on the Hider or their attached prop
 local function playHitHighlightEffect(hiderCharacter: Model)
 	local targetAdornee = hiderCharacter:FindFirstChild("MorphedProp") or hiderCharacter
@@ -166,8 +242,39 @@ seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vect
 		local prevHealth = hiderHumanoid.Health
 		hiderHumanoid:TakeDamage(HIDER_HIT_DAMAGE)
 		playHitHighlightEffect(hiderChar)
+		play3DSound(hiderRoot, "rbxassetid://9119713951", 1.5, 0.9)
 
-		if prevHealth > 0 and hiderHumanoid.Health <= 0 and hiderPlayer then
+		local eliminated = (prevHealth > 0 and hiderHumanoid.Health <= 0)
+		roundEventNotice:FireClient(seeker, "CombatFeedback", {
+			Outcome = if eliminated then "Kill" else "Hit",
+			Damage = HIDER_HIT_DAMAGE,
+			Coins = if eliminated then SEEKER_KILL_BOUNTY_COINS else 0,
+		})
+
+		if eliminated and hiderPlayer then
+			-- Award +15 Coins to Seeker and increment RoundKills
+			local ls = seeker:FindFirstChild("leaderstats")
+			local coins = ls and ls:FindFirstChild("Coins") :: IntValue?
+			if coins then
+				coins.Value += SEEKER_KILL_BOUNTY_COINS
+			end
+			local curKills = (seeker:GetAttribute("RoundKills") :: number?) or 0
+			seeker:SetAttribute("RoundKills", curKills + 1)
+
+			-- Progress Daily Quest for Seeker Catch
+			local qCatches = (seeker:GetAttribute("Quest_CatchCount") :: number?) or 0
+			qCatches += 1
+			seeker:SetAttribute("Quest_CatchCount", qCatches)
+			if qCatches == 1 and seeker:GetAttribute("Quest_CatchDone") ~= true then
+				seeker:SetAttribute("Quest_CatchDone", true)
+				if coins then
+					coins.Value += 35
+				end
+				roundEventNotice:FireClient(seeker, "QuestComplete", {
+					Title = "ภารกิจสำเร็จ: จับผู้ซ่อนสำเร็จ! (+35 Coins)",
+				})
+			end
+
 			roundEventNotice:FireAllClients("KillFeed", {
 				Killer = seeker.DisplayName,
 				Victim = hiderPlayer.DisplayName,
@@ -182,6 +289,13 @@ seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vect
 	if isRealMorphableProp(hitInstance) then
 		local prevHealth = seekerHumanoid.Health
 		seekerHumanoid:TakeDamage(SEEKER_MISS_PENALTY)
+		play3DSound(seekerRoot, "rbxassetid://12222124", 0.75, 0.9)
+
+		roundEventNotice:FireClient(seeker, "CombatFeedback", {
+			Outcome = "Penalty",
+			Damage = SEEKER_MISS_PENALTY,
+		})
+
 		if prevHealth > 0 and seekerHumanoid.Health <= 0 then
 			roundEventNotice:FireAllClients("KillFeed", {
 				Killer = "Prop Penalty",

@@ -211,6 +211,90 @@ local tauntHintLabel = createControlHintRow("TauntHint", "[T] Taunt (+5~20 Coins
 local decoyHintLabel = createControlHintRow("DecoyHint", "[G] Spawn Decoy (20 Coins)", 100)
 local sprintHintLabel = createControlHintRow("SprintHint", "[Shift] Smoke Sprint (Escape)", 122)
 
+-- Seeker Controls Hint Frame (Bottom-Right when on Seekers team!)
+local seekerControlsFrame = Instance.new("Frame")
+seekerControlsFrame.Name = "SeekerControlsHint"
+seekerControlsFrame.Size = UDim2.new(0, 275, 0, 114)
+seekerControlsFrame.Position = UDim2.new(1, -20, 1, -20)
+seekerControlsFrame.AnchorPoint = Vector2.new(1, 1)
+seekerControlsFrame.Visible = false
+seekerControlsFrame.ZIndex = 20
+stylePanel(seekerControlsFrame, 12, Color3.fromRGB(255, 85, 85))
+seekerControlsFrame.Parent = screenGui
+
+local seekerControlsHeader = Instance.new("TextLabel")
+seekerControlsHeader.Name = "Header"
+seekerControlsHeader.Size = UDim2.new(1, -24, 0, 22)
+seekerControlsHeader.Position = UDim2.new(0, 12, 0, 8)
+seekerControlsHeader.BackgroundTransparency = 1
+seekerControlsHeader.Font = Enum.Font.GothamBlack
+seekerControlsHeader.TextSize = 14
+seekerControlsHeader.TextXAlignment = Enum.TextXAlignment.Left
+seekerControlsHeader.TextColor3 = Color3.fromRGB(255, 95, 95)
+seekerControlsHeader.Text = "SEEKER CONTROLS"
+seekerControlsHeader.ZIndex = 21
+seekerControlsHeader.Parent = seekerControlsFrame
+
+local function createSeekerHintRow(name: string, text: string, yOffset: number): TextLabel
+	local row = Instance.new("TextLabel")
+	row.Name = name
+	row.Size = UDim2.new(1, -24, 0, 20)
+	row.Position = UDim2.new(0, 12, 0, yOffset)
+	row.BackgroundTransparency = 1
+	row.Font = Enum.Font.GothamMedium
+	row.TextSize = 13
+	row.TextXAlignment = Enum.TextXAlignment.Left
+	row.TextColor3 = Color3.fromRGB(230, 235, 245)
+	row.Text = text
+	row.ZIndex = 21
+	row.Parent = seekerControlsFrame
+	return row
+end
+
+local seekerAttackHint = createSeekerHintRow("AttackHint", "[Click] โจมตี (-50 HP / พลาด -15 HP)", 34)
+local seekerRadarHint = createSeekerHintRow("RadarHint", "[Q] Sonar Radar (สแกนระยะ Hider)", 58)
+local seekerSurgeHint = createSeekerHintRow("SurgeHint", "[E] Speed Surge (วิ่งไวไล่ล่า 4s)", 82)
+
+-- Live Cooldown Countdown Tracker
+local cooldownExpiries: { [string]: number } = {}
+
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local now = os.clock()
+
+		local function getRemain(key: string): number
+			local exp = cooldownExpiries[key]
+			return if exp and exp > now then math.ceil(exp - now) else 0
+		end
+
+		local tRem = getRemain("Taunt")
+		tauntHintLabel.Text = if tRem > 0
+			then string.format("[T] Taunt (⏳ %ds)", tRem)
+			else "[T] Taunt (+5~20 Coins, Max 50)"
+
+		local dRem = getRemain("SpawnDecoy")
+		decoyHintLabel.Text = if dRem > 0
+			then string.format("[G] Spawn Decoy (⏳ %ds)", dRem)
+			else "[G] Spawn Decoy (20 Coins)"
+
+		local sRem = getRemain("SmokeSprint")
+		sprintHintLabel.Text = if sRem > 0
+			then string.format("[Shift] Smoke Sprint (⏳ %ds)", sRem)
+			else "[Shift] Smoke Sprint (Escape)"
+
+		local rRem = getRemain("SeekerRadar")
+		seekerRadarHint.Text = if rRem > 0
+			then string.format("[Q] Sonar Radar (⏳ %ds)", rRem)
+			else "[Q] Sonar Radar (สแกนระยะ Hider)"
+
+		local eRem = getRemain("SeekerSurge")
+		seekerSurgeHint.Text = if eRem > 0
+			then string.format("[E] Speed Surge (⏳ %ds)", eRem)
+			else "[E] Speed Surge (วิ่งไวไล่ล่า 4s)"
+	end
+end)
+
 --------------------------------------------------------------------------------
 -- 4. KILL FEED (Top-Right) & LAST MAN STANDING BANNER + SOUND
 --------------------------------------------------------------------------------
@@ -327,31 +411,122 @@ roundEventNotice.OnClientEvent:Connect(function(eventType: string, payload: { [s
 			string.format("🔥 เหลือ Hider คนสุดท้าย: %s!", hiderName),
 			Color3.fromRGB(255, 215, 70)
 		)
+	elseif eventType == "AbilityCooldown" and typeof(payload) == "table" then
+		local ability = tostring(payload.Ability or "")
+		local duration = tonumber(payload.Duration) or 0
+		if ability ~= "" and duration > 0 then
+			cooldownExpiries[ability] = os.clock() + duration
+		end
 	end
 end)
 
 --------------------------------------------------------------------------------
--- 4. SEEKER BLINDFOLD OVERLAY (Shown when Seeker is waiting in Hiding Phase)
+-- 5. ROUND SUMMARY / MVP CARD (Shown during RoundOver Phase)
 --------------------------------------------------------------------------------
-local blindfoldOverlay = Instance.new("Frame")
-blindfoldOverlay.Name = "SeekerBlindfoldOverlay"
-blindfoldOverlay.Size = UDim2.fromScale(1, 1)
-blindfoldOverlay.BackgroundColor3 = Color3.fromRGB(10, 11, 16)
-blindfoldOverlay.Visible = false
-blindfoldOverlay.ZIndex = 10
-blindfoldOverlay.Parent = screenGui
+local summaryCard = Instance.new("Frame")
+summaryCard.Name = "RoundSummaryMvpCard"
+summaryCard.Size = UDim2.new(0, 420, 0, 215)
+summaryCard.Position = UDim2.fromScale(0.5, 0.46)
+summaryCard.AnchorPoint = Vector2.new(0.5, 0.5)
+summaryCard.Visible = false
+summaryCard.ZIndex = 35
+stylePanel(summaryCard, 16, Color3.fromRGB(255, 215, 70))
+summaryCard.Parent = screenGui
 
-local blindfoldText = Instance.new("TextLabel")
-blindfoldText.Size = UDim2.new(0.8, 0, 0, 80)
-blindfoldText.Position = UDim2.fromScale(0.5, 0.5)
-blindfoldText.AnchorPoint = Vector2.new(0.5, 0.5)
-blindfoldText.BackgroundTransparency = 1
-blindfoldText.Font = Enum.Font.GothamBlack
-blindfoldText.TextSize = 28
-blindfoldText.TextColor3 = Color3.fromRGB(255, 85, 85)
-blindfoldText.Text = "YOU ARE THE SEEKER!\nHiders are currently hiding..."
-blindfoldText.ZIndex = 11
-blindfoldText.Parent = blindfoldOverlay
+local summaryWinnerLabel = Instance.new("TextLabel")
+summaryWinnerLabel.Size = UDim2.new(1, -24, 0, 36)
+summaryWinnerLabel.Position = UDim2.new(0, 12, 0, 14)
+summaryWinnerLabel.BackgroundTransparency = 1
+summaryWinnerLabel.Font = Enum.Font.GothamBlack
+summaryWinnerLabel.TextSize = 22
+summaryWinnerLabel.TextColor3 = Color3.fromRGB(255, 215, 75)
+summaryWinnerLabel.Text = "🏆 HIDERS WIN!"
+summaryWinnerLabel.ZIndex = 36
+summaryWinnerLabel.Parent = summaryCard
+
+local summarySubLabel = Instance.new("TextLabel")
+summarySubLabel.Size = UDim2.new(1, -24, 0, 22)
+summarySubLabel.Position = UDim2.new(0, 12, 0, 50)
+summarySubLabel.BackgroundTransparency = 1
+summarySubLabel.Font = Enum.Font.GothamBold
+summarySubLabel.TextSize = 14
+summarySubLabel.TextColor3 = Color3.fromRGB(115, 245, 145)
+summarySubLabel.Text = "ทีมที่ชนะได้รับ +50 Coins & +1 Win"
+summarySubLabel.ZIndex = 36
+summarySubLabel.Parent = summaryCard
+
+local mvpHiderLabel = Instance.new("TextLabel")
+mvpHiderLabel.Size = UDim2.new(1, -32, 0, 42)
+mvpHiderLabel.Position = UDim2.new(0, 16, 0, 86)
+mvpHiderLabel.BackgroundColor3 = Color3.fromRGB(28, 34, 48)
+mvpHiderLabel.Font = Enum.Font.GothamBold
+mvpHiderLabel.TextSize = 14
+mvpHiderLabel.TextColor3 = Color3.fromRGB(110, 205, 255)
+mvpHiderLabel.Text = "🥇 ซ่อนรอดนานสุด: -"
+mvpHiderLabel.ZIndex = 36
+mvpHiderLabel.Parent = summaryCard
+
+local mvpCorner1 = Instance.new("UICorner")
+mvpCorner1.CornerRadius = UDim.new(0, 8)
+mvpCorner1.Parent = mvpHiderLabel
+
+local mvpSeekerLabel = Instance.new("TextLabel")
+mvpSeekerLabel.Size = UDim2.new(1, -32, 0, 42)
+mvpSeekerLabel.Position = UDim2.new(0, 16, 0, 138)
+mvpSeekerLabel.BackgroundColor3 = Color3.fromRGB(28, 34, 48)
+mvpSeekerLabel.Font = Enum.Font.GothamBold
+mvpSeekerLabel.TextSize = 14
+mvpSeekerLabel.TextColor3 = Color3.fromRGB(255, 115, 115)
+mvpSeekerLabel.Text = "⚔️ มือปราบ Seeker: -"
+mvpSeekerLabel.ZIndex = 36
+mvpSeekerLabel.Parent = summaryCard
+
+local mvpCorner2 = Instance.new("UICorner")
+mvpCorner2.CornerRadius = UDim.new(0, 8)
+mvpCorner2.Parent = mvpSeekerLabel
+
+roundEventNotice.OnClientEvent:Connect(function(eventType: string, payload: { [string]: any }?)
+	if eventType == "RoundSummary" and typeof(payload) == "table" then
+		local winningSide = tostring(payload.WinningSide or "Hiders")
+		local bestHider = tostring(payload.BestHiderName or "-")
+		local bestTime = tonumber(payload.BestHiderSurvival) or 0
+		local bestSeeker = tostring(payload.BestSeekerName or "-")
+		local bestKills = tonumber(payload.BestSeekerKills) or 0
+
+		summaryWinnerLabel.Text = if winningSide == "Seekers"
+			then "🏆 SEEKERS WIN! (ฝ่ายหาชนะ)"
+			else "🏆 HIDERS WIN! (ฝ่ายซ่อนชนะ)"
+		summaryWinnerLabel.TextColor3 = if winningSide == "Seekers"
+			then Color3.fromRGB(255, 95, 95)
+			else Color3.fromRGB(85, 205, 255)
+
+		mvpHiderLabel.Text = string.format("🥇 ซ่อนรอดนานสุด: %s (%ds)", bestHider, bestTime)
+		mvpSeekerLabel.Text = string.format("⚔️ มือปราบ Seeker: %s (%d Kills)", bestSeeker, bestKills)
+		summaryCard.Visible = true
+
+		local winSound = Instance.new("Sound")
+		winSound.SoundId = "rbxassetid://9114074147"
+		winSound.Volume = 0.85
+		winSound.PlaybackSpeed = 1.1
+		winSound.Parent = screenGui
+		winSound:Play()
+		Debris:AddItem(winSound, 3)
+
+		task.delay(4.8, function()
+			summaryCard.Visible = false
+		end)
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- 6. AMBIENT BGM & LAST 30s TENSION AUDIO
+--------------------------------------------------------------------------------
+local bgmSound = Instance.new("Sound")
+bgmSound.Name = "PhaseAmbientSound"
+bgmSound.SoundId = "rbxassetid://9114074403"
+bgmSound.Looped = false
+bgmSound.Volume = 0.2
+bgmSound.Parent = screenGui
 
 --------------------------------------------------------------------------------
 -- REAL-TIME UPDATE LOGIC
@@ -373,6 +548,17 @@ local function updateTopStatusBar()
 	local timerNum = if typeof(rawTimer) == "number" then rawTimer else 0
 	timerLabel.Text = formatTimeMMSS(timerNum)
 
+	-- Tension tick in last 15 seconds of HuntingPhase
+	if rawState == "HuntingPhase" and timerNum > 0 and timerNum <= 15 then
+		timerLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+		bgmSound.SoundId = "rbxassetid://12222124"
+		bgmSound.PlaybackSpeed = 1.9
+		bgmSound.Volume = 0.25
+		bgmSound:Play()
+	else
+		timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end
+
 	if rawState == "Intermission" then
 		stateLabel.Text = "INTERMISSION"
 		stateLabel.TextColor3 = Color3.fromRGB(185, 195, 220)
@@ -392,16 +578,21 @@ local function updateTopStatusBar()
 	end
 end
 
--- 2. Update Role Text & Hider Controls Visibility
+-- 2. Update Role Text & Hider/Seeker Controls Visibility
 local function updateRoleAndControls()
 	local teamName = if localPlayer.Team then localPlayer.Team.Name else "Lobby"
 	local character = localPlayer.Character
 	local isLocked = character and character:GetAttribute("IsPropLocked") == true
+	local sizeClass = character and character:GetAttribute("PropSizeClass")
 
 	if teamName == "Hiders" then
-		roleLabel.Text = if isLocked then "ROLE: HIDER [LOCKED]" else "ROLE: HIDER"
+		local sizeSuffix = if typeof(sizeClass) == "string" then string.format(" (%s)", sizeClass) else ""
+		roleLabel.Text = if isLocked
+			then "ROLE: HIDER [LOCKED]" .. sizeSuffix
+			else "ROLE: HIDER" .. sizeSuffix
 		roleLabel.TextColor3 = ROLE_COLORS.Hiders
 		hiderControlsFrame.Visible = true
+		seekerControlsFrame.Visible = false
 
 		lockHintLabel.Text = if isLocked
 			then "[F] ปลดล็อก  |  [V] ส่องดูเพื่อน"
@@ -413,17 +604,17 @@ local function updateRoleAndControls()
 		roleLabel.Text = "ROLE: SEEKER"
 		roleLabel.TextColor3 = ROLE_COLORS.Seekers
 		hiderControlsFrame.Visible = false
+		seekerControlsFrame.Visible = true
 	else
 		roleLabel.Text = "ROLE: LOBBY"
 		roleLabel.TextColor3 = ROLE_COLORS.Lobby
 		hiderControlsFrame.Visible = false
+		seekerControlsFrame.Visible = false
 	end
 
 	-- Keep silence warning unused variable checks
 	local _ = morphHintLabel
-	local _ = tauntHintLabel
-	local _ = decoyHintLabel
-	local _ = sprintHintLabel
+	local _ = seekerAttackHint
 end
 
 -- 3. Update Dynamic Health Bar
@@ -465,12 +656,16 @@ local function bindCharacter(character: Model)
 
 	updateRoleAndControls()
 	lockConnection = character:GetAttributeChangedSignal("IsPropLocked"):Connect(updateRoleAndControls)
+	character:GetAttributeChangedSignal("PropSizeClass"):Connect(updateRoleAndControls)
 
 	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
 	if humanoid then
 		updateHealthBar(humanoid.Health, humanoid.MaxHealth)
 		healthConnection = humanoid.HealthChanged:Connect(function(newHealth: number)
 			updateHealthBar(newHealth, humanoid.MaxHealth)
+		end)
+		humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(function()
+			updateHealthBar(humanoid.Health, humanoid.MaxHealth)
 		end)
 	end
 end

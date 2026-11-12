@@ -73,6 +73,7 @@ local function recordHiderSurvivalTime(player: Player)
 	end
 	hiderRoundStartTimes[player] = nil
 	local survivedSeconds = math.max(0, math.floor(os.clock() - startTime))
+	player:SetAttribute("LastRoundSurvival", survivedSeconds)
 	local leaderstats = player:FindFirstChild("leaderstats")
 	local bestSurvival = leaderstats and leaderstats:FindFirstChild("BestSurvival") :: IntValue?
 	if bestSurvival and survivedSeconds > bestSurvival.Value then
@@ -401,6 +402,16 @@ end)
 
 tallyVotesAndGetLeadingChoice()
 
+local function getActiveParticipants(): { Player }
+	local list: { Player } = {}
+	for _, p in Players:GetPlayers() do
+		if p:GetAttribute("IsAFK") ~= true then
+			table.insert(list, p)
+		end
+	end
+	return list
+end
+
 local function cleanupRound()
 	table.clear(activeHiders)
 	table.clear(activeSeekers)
@@ -408,10 +419,19 @@ local function cleanupRound()
 	table.clear(playerMapVotes)
 	lastManStandingTriggered = false
 
+	-- Destroy any leftover HiderDecoyProps from the previous round
+	for _, child in workspace:GetChildren() do
+		if child.Name == "HiderDecoyProp" then
+			child:Destroy()
+		end
+	end
+
 	for _, player in Players:GetPlayers() do
 		player:SetAttribute("IsBlindfolded", false)
 		player:SetAttribute("VotedMap", "Random")
 		player:SetAttribute("RoundTauntCoins", 0)
+		player:SetAttribute("RoundKills", 0)
+		player:SetAttribute("LastRoundSurvival", 0)
 		player.Team = lobbyTeam
 		player:LoadCharacter()
 	end
@@ -424,16 +444,16 @@ end
 --------------------------------------------------------------------------------
 task.spawn(function()
 	while true do
-		-- Wait until at least MIN_PLAYERS are in the server
-		while #Players:GetPlayers() < MIN_PLAYERS do
-			broadcastRoundState("WaitingForPlayers", 0, "Waiting for players...")
+		-- Wait until at least MIN_PLAYERS non-AFK players are in the server
+		while #getActiveParticipants() < MIN_PLAYERS do
+			broadcastRoundState("WaitingForPlayers", 0, "Waiting for active players...")
 			task.wait(1)
 		end
 
 		-- STATE 1: Intermission
 		local intermissionCompleted = true
 		for remaining = INTERMISSION_TIME, 1, -1 do
-			if #Players:GetPlayers() < MIN_PLAYERS then
+			if #getActiveParticipants() < MIN_PLAYERS then
 				intermissionCompleted = false
 				break
 			end
@@ -441,20 +461,18 @@ task.spawn(function()
 			task.wait(1)
 		end
 
-		local participants = Players:GetPlayers()
+		local participants = getActiveParticipants()
 		if not intermissionCompleted or #participants < MIN_PLAYERS then
 			continue
 		end
 
-		-- Resolve Map Vote (if "Random" won or no one voted, pick 1 of the 4 maps at random!)
+		-- Resolve Map Vote & Always rebuild map so random clutter props change every round!
 		local winningChoice = tallyVotesAndGetLeadingChoice()
 		local finalMapId = if winningChoice == "Random"
 			then MAP_POOL[math.random(1, #MAP_POOL)]
 			else winningChoice
 
-		if workspace:GetAttribute("ActiveMapId") ~= finalMapId then
-			MapBuilder.Generate(finalMapId)
-		end
+		MapBuilder.Generate(finalMapId)
 
 		-- STATE 2: Role Selection (Scale Seekers by player count: ~1 Seeker per 4 players)
 		table.clear(activeHiders)
@@ -481,6 +499,8 @@ task.spawn(function()
 
 		for index, player in shuffled do
 			player:SetAttribute("RoundTauntCoins", 0)
+			player:SetAttribute("RoundKills", 0)
+			player:SetAttribute("LastRoundSurvival", 0)
 			if index <= numSeekers then
 				player.Team = seekersTeam
 				activeSeekers[player] = true
@@ -566,7 +586,27 @@ task.spawn(function()
 			recordHiderSurvivalTime(hider)
 		end
 
-		-- STATE 5: Announce Winner, Award 50 Coins + 1 Win, and Cleanup
+		-- STATE 5: Announce Winner, Award 50 Coins + 1 Win, Broadcast Round Summary MVP Card, and Cleanup
+		local bestHiderName = "-"
+		local bestHiderTime = -1
+		for _, h in roundHiderRoster do
+			local surv = (h:GetAttribute("LastRoundSurvival") :: number?) or 0
+			if surv > bestHiderTime then
+				bestHiderTime = surv
+				bestHiderName = h.DisplayName
+			end
+		end
+
+		local bestSeekerName = "-"
+		local bestSeekerKills = 0
+		for _, s in roundSeekerRoster do
+			local k = (s:GetAttribute("RoundKills") :: number?) or 0
+			if k >= bestSeekerKills then
+				bestSeekerKills = k
+				bestSeekerName = s.DisplayName
+			end
+		end
+
 		if winningSide == "Seekers" then
 			broadcastRoundState("RoundOver", POST_ROUND_TIME, "Seekers Win! (+50 Coins)")
 			awardWinners(roundSeekerRoster, WIN_REWARD_COINS)
@@ -575,6 +615,15 @@ task.spawn(function()
 			-- Award 50 Coins to the Hiders side
 			awardWinners(roundHiderRoster, WIN_REWARD_COINS)
 		end
+
+		roundEventNotice:FireAllClients("RoundSummary", {
+			WinningSide = winningSide,
+			BestHiderName = bestHiderName,
+			BestHiderSurvival = math.max(0, bestHiderTime),
+			BestSeekerName = bestSeekerName,
+			BestSeekerKills = bestSeekerKills,
+			RewardCoins = WIN_REWARD_COINS,
+		})
 
 		task.wait(POST_ROUND_TIME)
 

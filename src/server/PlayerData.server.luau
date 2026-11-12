@@ -56,6 +56,9 @@ local function loadPlayerData(player: Player)
 		if typeof(savedData.EquippedSkin) == "string" then
 			player:SetAttribute("EquippedSkin", savedData.EquippedSkin)
 		end
+		if typeof(savedData.TauntSoundPack) == "string" then
+			player:SetAttribute("TauntSoundPack", savedData.TauntSoundPack)
+		end
 	end
 end
 
@@ -82,11 +85,20 @@ local function savePlayerData(player: Player)
 		HasHealthPerk = player:GetAttribute("HasHealthPerk") == true,
 		OwnedSkins = tostring(player:GetAttribute("OwnedSkins") or "Default"),
 		EquippedSkin = tostring(player:GetAttribute("EquippedSkin") or "Default"),
+		TauntSoundPack = tostring(player:GetAttribute("TauntSoundPack") or "Classic"),
 	}
 
-	pcall(function()
-		playerStore:SetAsync(key, dataToSave)
-	end)
+	for attempt = 1, 2 do
+		local okSave = pcall(function()
+			playerStore:UpdateAsync(key, function(_oldValue)
+				return dataToSave
+			end)
+		end)
+		if okSave then
+			break
+		end
+		task.wait(0.5 * attempt)
+	end
 end
 
 Players.PlayerAdded:Connect(loadPlayerData)

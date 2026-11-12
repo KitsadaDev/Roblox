@@ -14,6 +14,7 @@ local Debris = game:GetService("Debris")
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
 local tauntRequestEvent = PropRemotes.TauntRequest
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 -- Constants
 local MANUAL_TAUNT_COOLDOWN = 10.0 -- 10-second cooldown per player
@@ -23,13 +24,20 @@ local EXCLAMATION_DURATION = 1.5 -- 1.5 seconds floating "!" indicator
 local HIDERS_TEAM_NAME = "Hiders"
 local SEEKERS_TEAM_NAME = "Seekers"
 
--- 5 Default Valid Roblox Sound Asset IDs (Whistle, Boing, Horn, Laugh, Slide Whistle)
-local TAUNT_SOUND_IDS = {
-	"rbxassetid://9114074403", -- Classic Whistle
-	"rbxassetid://12222124", -- Cartoon Boing / Spring
-	"rbxassetid://9119713951", -- Party / Clown Horn
-	"rbxassetid://9118823108", -- Goofy Chuckle / Laugh
-	"rbxassetid://9114074147", -- Double Slide Whistle
+-- Sound Packs (Classic, Cartoon, Party)
+local TAUNT_SOUND_PACKS: { [string]: { string } } = {
+	Classic = {
+		"rbxassetid://9114074403", -- Classic Whistle
+		"rbxassetid://9114074147", -- Double Slide Whistle
+	},
+	Cartoon = {
+		"rbxassetid://12222124", -- Cartoon Boing / Spring
+		"rbxassetid://9118823108", -- Goofy Chuckle / Laugh
+	},
+	Party = {
+		"rbxassetid://9119713951", -- Party / Clown Horn
+		"rbxassetid://9118823108", -- Goofy Chuckle
+	},
 }
 
 -- Cooldown tracker per Hider
@@ -57,10 +65,13 @@ local function getAliveHiderRoot(player: Player): (boolean, Model?, BasePart?)
 end
 
 -- Helper: Play a random 3D Taunt Sound parented to the Hider's HumanoidRootPart
-local function playTauntSound(rootPart: BasePart)
+local function playTauntSound(player: Player, rootPart: BasePart)
+	local packName = tostring(player:GetAttribute("TauntSoundPack") or "Classic")
+	local soundList = TAUNT_SOUND_PACKS[packName] or TAUNT_SOUND_PACKS.Classic
+
 	local sound = Instance.new("Sound")
 	sound.Name = "HiderTauntSound"
-	sound.SoundId = TAUNT_SOUND_IDS[math.random(1, #TAUNT_SOUND_IDS)]
+	sound.SoundId = soundList[math.random(1, #soundList)]
 	sound.Volume = 1.25
 	sound.RollOffMinDistance = 8
 	sound.RollOffMaxDistance = 80 -- Nearby Seekers within 80 studs can hear the direction
@@ -208,11 +219,31 @@ tauntRequestEvent.OnServerEvent:Connect(function(player: Player)
 	end
 
 	manualTauntCooldowns[player] = now
+	roundEventNotice:FireClient(player, "AbilityCooldown", {
+		Ability = "Taunt",
+		Duration = MANUAL_TAUNT_COOLDOWN,
+	})
 
 	-- Play 3D sound, award distance-based Coins (up to 50/round), and display floating "!" BillboardGui
-	playTauntSound(rootPart)
+	playTauntSound(player, rootPart)
 	local rewarded = calculateAndAwardTauntCoins(player, rootPart.Position)
 	showExclamationBillboard(rootPart, rewarded)
+
+	-- Progress Daily Quest for Taunting
+	local qTaunts = (player:GetAttribute("Quest_TauntCount") :: number?) or 0
+	qTaunts += 1
+	player:SetAttribute("Quest_TauntCount", qTaunts)
+	if qTaunts == 3 and player:GetAttribute("Quest_TauntDone") ~= true then
+		player:SetAttribute("Quest_TauntDone", true)
+		local ls = player:FindFirstChild("leaderstats")
+		local coins = ls and ls:FindFirstChild("Coins") :: IntValue?
+		if coins then
+			coins.Value += 30
+		end
+		roundEventNotice:FireClient(player, "QuestComplete", {
+			Title = "ภารกิจสำเร็จ: ผิวปากกวนครบ 3 ครั้ง! (+30 Coins)",
+		})
+	end
 end)
 
 --------------------------------------------------------------------------------
@@ -234,7 +265,7 @@ task.spawn(function()
 				for _, player in Players:GetPlayers() do
 					local isAliveHider, _char, rootPart = getAliveHiderRoot(player)
 					if isAliveHider and rootPart then
-						playTauntSound(rootPart)
+						playTauntSound(player, rootPart)
 					end
 				end
 			end

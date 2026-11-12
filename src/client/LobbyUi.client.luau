@@ -168,16 +168,37 @@ subStatusLabel.Text = "เลือกโหวตแมพด้านล่า
 subStatusLabel.ZIndex = 32
 subStatusLabel.Parent = headerFrame
 
+local afkToggleBtn = Instance.new("TextButton")
+afkToggleBtn.Name = "AfkToggleButton"
+afkToggleBtn.Size = UDim2.new(0, 118, 0, 38)
+afkToggleBtn.Position = UDim2.new(1, -184, 0.5, 0)
+afkToggleBtn.AnchorPoint = Vector2.new(1, 0.5)
+afkToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 52, 72)
+afkToggleBtn.Font = Enum.Font.GothamBold
+afkToggleBtn.TextSize = 12
+afkToggleBtn.TextColor3 = Color3.fromRGB(115, 245, 145)
+afkToggleBtn.Text = "🟢 พร้อมเล่น"
+afkToggleBtn.ZIndex = 32
+afkToggleBtn.Parent = headerFrame
+
+local afkCorner = Instance.new("UICorner")
+afkCorner.CornerRadius = UDim.new(0, 8)
+afkCorner.Parent = afkToggleBtn
+
+afkToggleBtn.Activated:Connect(function()
+	abilityRequestEvent:FireServer("ToggleAFK")
+end)
+
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Name = "WalkAroundButton"
-minimizeBtn.Size = UDim2.new(0, 175, 0, 38)
+minimizeBtn.Size = UDim2.new(0, 162, 0, 38)
 minimizeBtn.Position = UDim2.new(1, -14, 0.5, 0)
 minimizeBtn.AnchorPoint = Vector2.new(1, 0.5)
 minimizeBtn.BackgroundColor3 = Color3.fromRGB(55, 155, 95)
 minimizeBtn.Font = Enum.Font.GothamBold
-minimizeBtn.TextSize = 13
+minimizeBtn.TextSize = 12
 minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minimizeBtn.Text = "เดินชมล็อบบี้ (ย่อหน้าต่าง)"
+minimizeBtn.Text = "เดินชมล็อบบี้ (ย่อ)"
 minimizeBtn.ZIndex = 32
 minimizeBtn.Parent = headerFrame
 
@@ -352,7 +373,7 @@ rightPanel.BackgroundTransparency = 1
 rightPanel.ZIndex = 31
 rightPanel.Parent = mainCard
 
--- Quick Rules Summary
+-- Quick Rules & Live Daily Quests Summary
 local guideCard = Instance.new("Frame")
 guideCard.Size = UDim2.new(1, 0, 0, 68)
 guideCard.Position = UDim2.new(0, 0, 0, 0)
@@ -361,7 +382,7 @@ styleCard(guideCard, Color3.fromRGB(24, 32, 48), 10, Color3.fromRGB(75, 185, 255
 guideCard.Parent = rightPanel
 
 local guideText = Instance.new("TextLabel")
-guideText.Size = UDim2.new(1, -20, 1, -10)
+guideText.Size = UDim2.new(1, -135, 1, -10)
 guideText.Position = UDim2.new(0, 10, 0, 5)
 guideText.BackgroundTransparency = 1
 guideText.Font = Enum.Font.GothamMedium
@@ -370,9 +391,31 @@ guideText.TextWrapped = true
 guideText.TextXAlignment = Enum.TextXAlignment.Left
 guideText.TextYAlignment = Enum.TextYAlignment.Center
 guideText.TextColor3 = Color3.fromRGB(225, 235, 250)
-guideText.Text = "• ฝ่ายซ่อน (Hiders): [E] แปลงร่าง | [F] ล็อกตัว | [T] ผิวปาก (+5~20 Coins ตามความใกล้ Seeker, สูงสุด 50/รอบ)\n• ฝ่ายหา (Seekers ปรับตามจำนวนผู้เล่น 1:4): [คลิก] ตี (โดนของจริง -15 HP) | [Q] เรดาร์สแกน"
+guideText.Text = "📋 ภารกิจรับเหรียญฟรี:\n• แปลงร่าง 5 ครั้ง (+25C) | ผิวปาก 3 ครั้ง (+30C) | จับ Hider 1 คน (+35C)"
 guideText.ZIndex = 33
 guideText.Parent = guideCard
+
+local soundPackBtn = Instance.new("TextButton")
+soundPackBtn.Name = "TauntSoundPackBtn"
+soundPackBtn.Size = UDim2.new(0, 115, 0, 48)
+soundPackBtn.Position = UDim2.new(1, -10, 0.5, 0)
+soundPackBtn.AnchorPoint = Vector2.new(1, 0.5)
+soundPackBtn.BackgroundColor3 = Color3.fromRGB(36, 44, 66)
+soundPackBtn.Font = Enum.Font.GothamBold
+soundPackBtn.TextSize = 11
+soundPackBtn.TextWrapped = true
+soundPackBtn.TextColor3 = Color3.fromRGB(255, 215, 80)
+soundPackBtn.Text = "🔊 เสียง Taunt:\nClassic"
+soundPackBtn.ZIndex = 33
+soundPackBtn.Parent = guideCard
+
+local spCorner = Instance.new("UICorner")
+spCorner.CornerRadius = UDim.new(0, 8)
+spCorner.Parent = soundPackBtn
+
+soundPackBtn.Activated:Connect(function()
+	abilityRequestEvent:FireServer("CycleTauntPack")
+end)
 
 -- Lobby Perk & Cosmetics Shop Section
 local shopCard = Instance.new("Frame")
@@ -602,6 +645,22 @@ end
 local function refreshPerkButtons()
 	local hasSpeed = localPlayer:GetAttribute("HasSpeedPerk") == true
 	local hasHealth = localPlayer:GetAttribute("HasHealthPerk") == true
+	local isAfk = localPlayer:GetAttribute("IsAFK") == true
+	local soundPack = tostring(localPlayer:GetAttribute("TauntSoundPack") or "Classic")
+
+	afkToggleBtn.Text = if isAfk then "💤 พัก (AFK)" else "🟢 พร้อมเล่น"
+	afkToggleBtn.TextColor3 = if isAfk then Color3.fromRGB(255, 185, 75) else Color3.fromRGB(115, 245, 145)
+	soundPackBtn.Text = "🔊 เสียง Taunt:\n" .. soundPack
+
+	local qMorph = math.min(5, (localPlayer:GetAttribute("Quest_MorphCount") :: number?) or 0)
+	local qTaunt = math.min(3, (localPlayer:GetAttribute("Quest_TauntCount") :: number?) or 0)
+	local qCatch = math.min(1, (localPlayer:GetAttribute("Quest_CatchCount") :: number?) or 0)
+	guideText.Text = string.format(
+		"📋 ภารกิจรายวัน: แปลงร่าง (%d/5) +25C | ผิวปาก (%d/3) +30C | จับ Hider (%d/1) +35C\n• Prop เล็ก HP 70 / ใหญ่ HP 140 | Seeker มี [Q] Radar & [E] Surge (+15C/Kill)",
+		qMorph,
+		qTaunt,
+		qCatch
+	)
 
 	local speedSub = speedPerkBtn:FindFirstChild("Sub") :: TextLabel?
 	if speedSub then
@@ -823,6 +882,11 @@ localPlayer:GetAttributeChangedSignal("HasSpeedPerk"):Connect(refreshPerkButtons
 localPlayer:GetAttributeChangedSignal("HasHealthPerk"):Connect(refreshPerkButtons)
 localPlayer:GetAttributeChangedSignal("OwnedSkins"):Connect(refreshPerkButtons)
 localPlayer:GetAttributeChangedSignal("EquippedSkin"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("IsAFK"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("TauntSoundPack"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("Quest_MorphCount"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("Quest_TauntCount"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("Quest_CatchCount"):Connect(refreshPerkButtons)
 localPlayer:GetAttributeChangedSignal("VotedMap"):Connect(updateMapVoteUI)
 
 for _, opt in MAP_OPTIONS do

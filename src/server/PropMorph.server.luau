@@ -10,11 +10,13 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local Teams = game:GetService("Teams")
+local Debris = game:GetService("Debris")
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
 local morphRequestEvent = PropRemotes.MorphRequest
 local toggleLockEvent = PropRemotes.ToggleLockRequest
 local rotatePropEvent = PropRemotes.RotatePropRequest
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 local MAX_MORPH_DISTANCE = 35
 local MORPH_TAG = "Morphable"
@@ -258,6 +260,82 @@ local function applyCosmeticSkinToProp(player: Player, propClone: Instance)
 	end
 end
 
+-- Helper: Calculate prop bounding box volume/height and scale Hider MaxHealth & WalkSpeed
+local function applyPropSizeStats(player: Player, character: Model, humanoid: Humanoid, propClone: Instance)
+	local sizeVec = Vector3.new(4, 4, 4)
+	if propClone:IsA("BasePart") then
+		sizeVec = propClone.Size
+	elseif propClone:IsA("Model") then
+		local _, bboxSize = propClone:GetBoundingBox()
+		sizeVec = bboxSize
+	end
+
+	local maxDim = math.max(sizeVec.X, sizeVec.Y, sizeVec.Z)
+	local baseMaxHp = 100
+	local speedOffset = 0
+	local sizeLabel = "Medium"
+
+	if maxDim <= 3.6 then
+		-- Small prop (e.g. TrafficCone, PlantPot, TrashBin): Harder to spot, lower HP, slightly faster
+		baseMaxHp = 70
+		speedOffset = 2
+		sizeLabel = "Small"
+	elseif maxDim >= 7.5 then
+		-- Large prop (e.g. PineTree, CampingTent, Bookshelf, VendingMachine): Easy to spot, higher HP
+		baseMaxHp = 140
+		speedOffset = -1
+		sizeLabel = "Large"
+	end
+
+	if player:GetAttribute("HasHealthPerk") == true then
+		baseMaxHp += 50
+	end
+
+	local prevRatio = if humanoid.MaxHealth > 0 then math.clamp(humanoid.Health / humanoid.MaxHealth, 0.1, 1) else 1
+	humanoid.MaxHealth = baseMaxHp
+	humanoid.Health = math.max(15, math.round(baseMaxHp * prevRatio))
+
+	local perkBaseSpeed = if player:GetAttribute("HasSpeedPerk") == true then 20 else 16
+	local targetSpeed = math.max(12, perkBaseSpeed + speedOffset)
+	character:SetAttribute("BaseWalkSpeed", targetSpeed)
+	character:SetAttribute("PropSizeClass", sizeLabel)
+
+	if humanoid.WalkSpeed > 0 and humanoid.WalkSpeed < 24 then
+		humanoid.WalkSpeed = targetSpeed
+	end
+end
+
+-- Helper: Play a 3D Morph Poof sound & brief particle burst on morph
+local function playMorphFeedback(rootPart: BasePart)
+	local sound = Instance.new("Sound")
+	sound.Name = "MorphPoofSound"
+	sound.SoundId = "rbxassetid://12222124"
+	sound.PlaybackSpeed = 1.35
+	sound.Volume = 0.65
+	sound.RollOffMaxDistance = 45
+	sound.Parent = rootPart
+	sound:Play()
+	Debris:AddItem(sound, 2)
+end
+
+-- Helper: Progress Daily Quest for Morphing
+local function incrementMorphQuest(player: Player)
+	local qMorphs = (player:GetAttribute("Quest_MorphCount") :: number?) or 0
+	qMorphs += 1
+	player:SetAttribute("Quest_MorphCount", qMorphs)
+	if qMorphs == 5 and player:GetAttribute("Quest_MorphDone") ~= true then
+		player:SetAttribute("Quest_MorphDone", true)
+		local ls = player:FindFirstChild("leaderstats")
+		local coins = ls and ls:FindFirstChild("Coins") :: IntValue?
+		if coins then
+			coins.Value += 25
+		end
+		roundEventNotice:FireClient(player, "QuestComplete", {
+			Title = "ภารกิจสำเร็จ: แปลงร่างครบ 5 ครั้ง! (+25 Coins)",
+		})
+	end
+end
+
 -- Core Morph Execution Function (supports switching props repeatedly AND auto-morphing!)
 local function morphHiderIntoTarget(player: Player, morphTarget: Instance): boolean
 	local isHider, character, rootPart, humanoid = isValidHider(player)
@@ -279,12 +357,19 @@ local function morphHiderIntoTarget(player: Player, morphTarget: Instance): bool
 	propClone.Name = ACTIVE_PROP_NAME
 	CollectionService:RemoveTag(propClone, MORPH_TAG)
 
+	-- Save clean template name before applying skin so Decoys can strip skin if needed
 	applyCosmeticSkinToProp(player, propClone)
 	prepareAndWeldProp(propClone, rootPart, humanoid)
 	propClone.Parent = character
 
+	applyPropSizeStats(player, character, humanoid, propClone)
+	playMorphFeedback(rootPart)
+	incrementMorphQuest(player)
+
+	local cleanPropName = string.gsub(morphTarget.Name, "_Bonus_%d+$", "")
+	cleanPropName = string.gsub(cleanPropName, "_%d+$", "")
 	character:SetAttribute("IsMorphed", true)
-	character:SetAttribute("MorphedPropName", string.gsub(morphTarget.Name, "_%d+$", ""))
+	character:SetAttribute("MorphedPropName", cleanPropName)
 
 	rootPart.Anchored = wasAnchored
 	return true

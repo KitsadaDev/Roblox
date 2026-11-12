@@ -15,6 +15,7 @@ local Debris = game:GetService("Debris")
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
 local abilityRequestEvent = PropRemotes.AbilityRequest
 local radarFeedbackEvent = PropRemotes.RadarFeedback
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 -- Ability Constants
 local DECOY_COST_COINS = 20
@@ -27,6 +28,9 @@ local SPRINT_WALKSPEED = 26
 local DEFAULT_WALKSPEED = 16
 
 local RADAR_COOLDOWN = 15.0
+local SEEKER_SURGE_COOLDOWN = 20.0
+local SEEKER_SURGE_DURATION = 4.0
+local SEEKER_SURGE_WALKSPEED = 24
 
 local MORPH_TAG = "Morphable"
 local ACTIVE_PROP_NAME = "MorphedProp"
@@ -34,6 +38,7 @@ local ACTIVE_PROP_NAME = "MorphedProp"
 local decoyCooldowns: { [Player]: number } = {}
 local sprintCooldowns: { [Player]: number } = {}
 local radarCooldowns: { [Player]: number } = {}
+local seekerSurgeCooldowns: { [Player]: number } = {}
 
 -- Helper: Get alive character, rootPart, and humanoid
 local function getAliveCharacter(player: Player): (Model?, BasePart?, Humanoid?)
@@ -60,6 +65,10 @@ local function handleSpawnDecoy(hider: Player)
 
 	local now = os.clock()
 	if decoyCooldowns[hider] and (now - decoyCooldowns[hider]) < DECOY_COOLDOWN then
+		local remain = math.ceil(DECOY_COOLDOWN - (now - decoyCooldowns[hider]))
+		roundEventNotice:FireClient(hider, "AbilityError", {
+			Message = string.format("⏳ Decoy ติดคูลดาวน์ (%ds)", remain),
+		})
 		return
 	end
 
@@ -70,6 +79,9 @@ local function handleSpawnDecoy(hider: Player)
 
 	local currentProp = character:FindFirstChild(ACTIVE_PROP_NAME)
 	if not currentProp then
+		roundEventNotice:FireClient(hider, "AbilityError", {
+			Message = "⚠️ ต้องแปลงร่างเป็น Prop ก่อนจึงจะวางร่างปลอมได้!",
+		})
 		return
 	end
 
@@ -77,13 +89,22 @@ local function handleSpawnDecoy(hider: Player)
 	local leaderstats = hider:FindFirstChild("leaderstats")
 	local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
 	if not coins or coins.Value < DECOY_COST_COINS then
+		roundEventNotice:FireClient(hider, "AbilityError", {
+			Message = "⚠️ เหรียญไม่พอ! ต้องใช้ 20 Coins สำหรับวาง Decoy",
+		})
 		return
 	end
 
 	coins.Value -= DECOY_COST_COINS
 	decoyCooldowns[hider] = now
+	roundEventNotice:FireClient(hider, "AbilityCooldown", {
+		Ability = "SpawnDecoy",
+		Duration = DECOY_COOLDOWN,
+	})
 
 	-- Clone the Hider's current prop into Workspace as an anchored "Morphable" decoy!
+	-- Set CanCollide = false so the Hider's HumanoidRootPart never gets stuck inside their own decoy,
+	-- while keeping CanQuery = true so Seeker raycasts still hit it and take the -15 HP penalty!
 	local decoy = currentProp:Clone()
 	decoy.Name = "HiderDecoyProp"
 
@@ -94,7 +115,7 @@ local function handleSpawnDecoy(hider: Player)
 			end
 		end
 		decoy.Anchored = true
-		decoy.CanCollide = true
+		decoy.CanCollide = false
 		decoy.CanQuery = true
 	elseif decoy:IsA("Model") then
 		for _, desc in decoy:GetDescendants() do
@@ -102,7 +123,7 @@ local function handleSpawnDecoy(hider: Player)
 				desc:Destroy()
 			elseif desc:IsA("BasePart") then
 				desc.Anchored = true
-				desc.CanCollide = true
+				desc.CanCollide = false
 				desc.CanQuery = true
 			end
 		end
@@ -125,6 +146,10 @@ local function handleSmokeSprint(hider: Player)
 
 	local now = os.clock()
 	if sprintCooldowns[hider] and (now - sprintCooldowns[hider]) < SPRINT_COOLDOWN then
+		local remain = math.ceil(SPRINT_COOLDOWN - (now - sprintCooldowns[hider]))
+		roundEventNotice:FireClient(hider, "AbilityError", {
+			Message = string.format("⏳ Smoke Sprint ติดคูลดาวน์ (%ds)", remain),
+		})
 		return
 	end
 
@@ -134,6 +159,10 @@ local function handleSmokeSprint(hider: Player)
 	end
 
 	sprintCooldowns[hider] = now
+	roundEventNotice:FireClient(hider, "AbilityCooldown", {
+		Ability = "SmokeSprint",
+		Duration = SPRINT_COOLDOWN,
+	})
 
 	-- Automatically unlock prop if anchored so the Hider can dash away immediately
 	if rootPart.Anchored then
@@ -174,8 +203,9 @@ local function handleSmokeSprint(hider: Player)
 	humanoid.WalkSpeed = SPRINT_WALKSPEED
 	task.delay(SPRINT_DURATION, function()
 		if humanoid and humanoid.Parent and humanoid.Health > 0 then
-			local baseSpeed = if hider:GetAttribute("HasSpeedPerk") == true then 20 else DEFAULT_WALKSPEED
-			humanoid.WalkSpeed = baseSpeed
+			local customBase = character:GetAttribute("BaseWalkSpeed") :: number?
+			local fallbackSpeed = if hider:GetAttribute("HasSpeedPerk") == true then 20 else DEFAULT_WALKSPEED
+			humanoid.WalkSpeed = customBase or fallbackSpeed
 		end
 	end)
 end
@@ -195,6 +225,10 @@ local function handleSeekerRadar(seeker: Player)
 
 	local now = os.clock()
 	if radarCooldowns[seeker] and (now - radarCooldowns[seeker]) < RADAR_COOLDOWN then
+		local remain = math.ceil(RADAR_COOLDOWN - (now - radarCooldowns[seeker]))
+		roundEventNotice:FireClient(seeker, "AbilityError", {
+			Message = string.format("⏳ Radar ติดคูลดาวน์ (%ds)", remain),
+		})
 		return
 	end
 
@@ -204,6 +238,21 @@ local function handleSeekerRadar(seeker: Player)
 	end
 
 	radarCooldowns[seeker] = now
+	roundEventNotice:FireClient(seeker, "AbilityCooldown", {
+		Ability = "SeekerRadar",
+		Duration = RADAR_COOLDOWN,
+	})
+
+	-- Play 3D Sonar Radar ping sound
+	local pingSound = Instance.new("Sound")
+	pingSound.Name = "SonarRadarPing"
+	pingSound.SoundId = "rbxassetid://9114074403"
+	pingSound.PlaybackSpeed = 1.6
+	pingSound.Volume = 0.85
+	pingSound.RollOffMaxDistance = 60
+	pingSound.Parent = seekerRoot
+	pingSound:Play()
+	Debris:AddItem(pingSound, 2.5)
 
 	-- Visual expanding neon ring around the Seeker
 	local ring = Instance.new("Part")
@@ -256,10 +305,66 @@ local function handleSeekerRadar(seeker: Player)
 	radarFeedbackEvent:FireClient(seeker, message, nearestDistance)
 end
 
+--------------------------------------------------------------------------------
+-- ABILITY 4: SEEKER SPEED SURGE ([E] Key, 20s Cooldown)
+--------------------------------------------------------------------------------
+local function handleSeekerSurge(seeker: Player)
+	if workspace:GetAttribute("RoundState") ~= "HuntingPhase" then
+		return
+	end
+
+	local seekersTeam = Teams:FindFirstChild("Seekers")
+	if seekersTeam and seeker.Team ~= seekersTeam then
+		return
+	end
+
+	local now = os.clock()
+	if seekerSurgeCooldowns[seeker] and (now - seekerSurgeCooldowns[seeker]) < SEEKER_SURGE_COOLDOWN then
+		local remain = math.ceil(SEEKER_SURGE_COOLDOWN - (now - seekerSurgeCooldowns[seeker]))
+		roundEventNotice:FireClient(seeker, "AbilityError", {
+			Message = string.format("⏳ Speed Surge ติดคูลดาวน์ (%ds)", remain),
+		})
+		return
+	end
+
+	local _character, seekerRoot, humanoid = getAliveCharacter(seeker)
+	if not seekerRoot or not humanoid then
+		return
+	end
+
+	seekerSurgeCooldowns[seeker] = now
+	roundEventNotice:FireClient(seeker, "AbilityCooldown", {
+		Ability = "SeekerSurge",
+		Duration = SEEKER_SURGE_COOLDOWN,
+	})
+
+	-- Play surge sound & red trail effect
+	local surgeSound = Instance.new("Sound")
+	surgeSound.SoundId = "rbxassetid://9114074147"
+	surgeSound.PlaybackSpeed = 1.4
+	surgeSound.Volume = 0.8
+	surgeSound.Parent = seekerRoot
+	surgeSound:Play()
+	Debris:AddItem(surgeSound, 2)
+
+	humanoid.WalkSpeed = SEEKER_SURGE_WALKSPEED
+	task.delay(SEEKER_SURGE_DURATION, function()
+		if humanoid and humanoid.Parent and humanoid.Health > 0 then
+			humanoid.WalkSpeed = DEFAULT_WALKSPEED
+		end
+	end)
+end
+
 -- Route Ability & Lobby Shop Requests
+-- Balance fix: Speed & Health Perks apply to Hiders/Lobby so Seekers don't become overpowered!
 local function applyPlayerPerks(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
 	if not humanoid then
+		return
+	end
+
+	local seekersTeam = Teams:FindFirstChild("Seekers")
+	if seekersTeam and player.Team == seekersTeam then
 		return
 	end
 
@@ -324,6 +429,16 @@ abilityRequestEvent.OnServerEvent:Connect(function(player: Player, abilityName: 
 		handleSmokeSprint(player)
 	elseif abilityName == "SeekerRadar" then
 		handleSeekerRadar(player)
+	elseif abilityName == "SeekerSurge" then
+		handleSeekerSurge(player)
+	elseif abilityName == "ToggleAFK" then
+		local currentAfk = player:GetAttribute("IsAFK") == true
+		player:SetAttribute("IsAFK", not currentAfk)
+	elseif abilityName == "CycleTauntPack" then
+		local currentPack = tostring(player:GetAttribute("TauntSoundPack") or "Classic")
+		local order = { "Classic", "Cartoon", "Party" }
+		local nextIdx = (table.find(order, currentPack) or 1) % #order + 1
+		player:SetAttribute("TauntSoundPack", order[nextIdx])
 	elseif abilityName == "BuySpeedPerk" then
 		if player:GetAttribute("HasSpeedPerk") == true then
 			return
@@ -374,5 +489,6 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	decoyCooldowns[player] = nil
 	sprintCooldowns[player] = nil
 	radarCooldowns[player] = nil
+	seekerSurgeCooldowns[player] = nil
 end)
 

@@ -2276,11 +2276,69 @@ function MapBuilder.Generate(mapId: string?)
 	for index, item in placements do
 		local propModel = item.Build()
 		propModel.Name = string.format("%s_%02d", propModel.Name, index)
-		placeMorphableProp(propModel, propsFolder, item.Pos, item.Yaw)
+		-- Apply subtle random position & yaw jitter to non-structural props so Seekers cannot memorize exact pixel positions!
+		local finalPos = item.Pos
+		local finalYaw = item.Yaw
+		if math.abs(item.Pos.X) > 15 or math.abs(item.Pos.Z) > 15 then
+			local jx = (math.random() - 0.5) * 3.0
+			local jz = (math.random() - 0.5) * 3.0
+			finalPos = Vector3.new(
+				math.clamp(item.Pos.X + jx, -112, 112),
+				item.Pos.Y,
+				math.clamp(item.Pos.Z + jz, -112, 112)
+			)
+			if math.random() < 0.45 then
+				finalYaw = (item.Yaw + math.random(-1, 1) * 45) % 360
+			end
+		end
+		placeMorphableProp(propModel, propsFolder, finalPos, finalYaw)
+	end
+
+	-- Spawn 12 randomized bonus clutter props per round so every match has fresh hiding spots!
+	local bonusBuilders = {
+		function()
+			return createCrateModel(1.0)
+		end,
+		createPlantPotModel,
+		createTrashBinModel,
+		createTrafficConeModel,
+		createOfficeChairModel,
+		createWaterCoolerModel,
+	}
+	local bonusSpots = {
+		Vector3.new(-32, FLOOR_Y, -24),
+		Vector3.new(32, FLOOR_Y, -24),
+		Vector3.new(-32, FLOOR_Y, 24),
+		Vector3.new(32, FLOOR_Y, 24),
+		Vector3.new(-64, FLOOR_Y, -14),
+		Vector3.new(64, FLOOR_Y, 14),
+		Vector3.new(-14, FLOOR_Y, -64),
+		Vector3.new(14, FLOOR_Y, 64),
+		Vector3.new(-48, FLOOR_Y, -48),
+		Vector3.new(48, FLOOR_Y, -48),
+		Vector3.new(-48, FLOOR_Y, 48),
+		Vector3.new(48, FLOOR_Y, 48),
+		Vector3.new(-82, FLOOR_Y, 18),
+		Vector3.new(82, FLOOR_Y, -18),
+		Vector3.new(-18, FLOOR_Y, 82),
+		Vector3.new(18, FLOOR_Y, -82),
+	}
+	-- Shuffle bonus spots and place 10 random clutter props
+	for i = #bonusSpots, 2, -1 do
+		local j = math.random(1, i)
+		bonusSpots[i], bonusSpots[j] = bonusSpots[j], bonusSpots[i]
+	end
+	for bIdx = 1, 10 do
+		local spot = bonusSpots[bIdx]
+		local builder = bonusBuilders[math.random(1, #bonusBuilders)]
+		local bonusProp = builder()
+		bonusProp.Name = string.format("%s_Bonus_%02d", bonusProp.Name, bIdx)
+		local offsetSpot = spot + Vector3.new(math.random(-4, 4), 0, math.random(-4, 4))
+		placeMorphableProp(bonusProp, propsFolder, offsetSpot, math.random(0, 7) * 45)
 	end
 
 	workspace:SetAttribute("ActiveMapId", chosenId)
-	print(string.format("[MapBuilder] Built Map '%s' with %d 'Morphable' props!", chosenId, #placements))
+	print(string.format("[MapBuilder] Built Map '%s' with %d + 10 random 'Morphable' props!", chosenId, #placements))
 end
 
 return MapBuilder

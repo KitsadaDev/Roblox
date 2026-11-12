@@ -11,6 +11,7 @@ local Debris = game:GetService("Debris")
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
 local seekerAttackEvent = PropRemotes.SeekerAttackRequest
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 -- Combat Constants
 local MAX_ATTACK_DISTANCE = 10 -- 10 studs max range
@@ -153,7 +154,7 @@ seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vect
 	end
 
 	-- Case A: Hits a Hider or their attached Prop -> 50 damage + Highlight effect
-	local _hiderPlayer, hiderChar, hiderHumanoid, hiderRoot = getHiderFromHit(hitInstance)
+	local hiderPlayer, hiderChar, hiderHumanoid, hiderRoot = getHiderFromHit(hitInstance)
 	if hiderChar and hiderHumanoid and hiderRoot then
 		if hiderRoot.Anchored then
 			hiderRoot.Anchored = false
@@ -161,14 +162,34 @@ seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vect
 			hiderChar:SetAttribute("IsPropLocked", false)
 		end
 
+		local propName = tostring(hiderChar:GetAttribute("MorphedPropName") or "Prop")
+		local prevHealth = hiderHumanoid.Health
 		hiderHumanoid:TakeDamage(HIDER_HIT_DAMAGE)
 		playHitHighlightEffect(hiderChar)
+
+		if prevHealth > 0 and hiderHumanoid.Health <= 0 and hiderPlayer then
+			roundEventNotice:FireAllClients("KillFeed", {
+				Killer = seeker.DisplayName,
+				Victim = hiderPlayer.DisplayName,
+				PropName = propName,
+				Reason = "Eliminated",
+			})
+		end
 		return
 	end
 
 	-- Case B: Hits a real "Morphable" object in Workspace -> Deduct 15 health from Seeker
 	if isRealMorphableProp(hitInstance) then
+		local prevHealth = seekerHumanoid.Health
 		seekerHumanoid:TakeDamage(SEEKER_MISS_PENALTY)
+		if prevHealth > 0 and seekerHumanoid.Health <= 0 then
+			roundEventNotice:FireAllClients("KillFeed", {
+				Killer = "Prop Penalty",
+				Victim = seeker.DisplayName,
+				PropName = hitInstance.Name,
+				Reason = "SelfEliminated",
+			})
+		end
 		return
 	end
 

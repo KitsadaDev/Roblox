@@ -174,7 +174,8 @@ local function handleSmokeSprint(hider: Player)
 	humanoid.WalkSpeed = SPRINT_WALKSPEED
 	task.delay(SPRINT_DURATION, function()
 		if humanoid and humanoid.Parent and humanoid.Health > 0 then
-			humanoid.WalkSpeed = DEFAULT_WALKSPEED
+			local baseSpeed = if hider:GetAttribute("HasSpeedPerk") == true then 20 else DEFAULT_WALKSPEED
+			humanoid.WalkSpeed = baseSpeed
 		end
 	end)
 end
@@ -283,7 +284,36 @@ for _, p in Players:GetPlayers() do
 	end)
 end
 
-abilityRequestEvent.OnServerEvent:Connect(function(player: Player, abilityName: string)
+local COSMETIC_SKINS: { [string]: number } = {
+	Default = 0,
+	GoldProp = 100,
+	NeonCyan = 150,
+	RubySparkle = 200,
+	GhostForceField = 250,
+}
+
+local function playerOwnsSkin(player: Player, skinId: string): boolean
+	if skinId == "Default" then
+		return true
+	end
+	local ownedStr = tostring(player:GetAttribute("OwnedSkins") or "Default")
+	for _, token in string.split(ownedStr, ",") do
+		if token == skinId then
+			return true
+		end
+	end
+	return false
+end
+
+local function grantPlayerSkin(player: Player, skinId: string)
+	if playerOwnsSkin(player, skinId) then
+		return
+	end
+	local ownedStr = tostring(player:GetAttribute("OwnedSkins") or "Default")
+	player:SetAttribute("OwnedSkins", ownedStr .. "," .. skinId)
+end
+
+abilityRequestEvent.OnServerEvent:Connect(function(player: Player, abilityName: string, extraArg: any)
 	if typeof(abilityName) ~= "string" then
 		return
 	end
@@ -318,6 +348,23 @@ abilityRequestEvent.OnServerEvent:Connect(function(player: Player, abilityName: 
 			player:SetAttribute("HasHealthPerk", true)
 			if player.Character then
 				applyPlayerPerks(player, player.Character)
+			end
+		end
+	elseif abilityName == "BuyOrEquipSkin" and typeof(extraArg) == "string" then
+		local skinId = extraArg
+		local cost = COSMETIC_SKINS[skinId]
+		if cost == nil then
+			return
+		end
+		if playerOwnsSkin(player, skinId) then
+			player:SetAttribute("EquippedSkin", skinId)
+		else
+			local leaderstats = player:FindFirstChild("leaderstats")
+			local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
+			if coins and coins.Value >= cost then
+				coins.Value -= cost
+				grantPlayerSkin(player, skinId)
+				player:SetAttribute("EquippedSkin", skinId)
 			end
 		end
 	end

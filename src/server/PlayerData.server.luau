@@ -1,12 +1,12 @@
 --!strict
 -- ServerScriptService/Server/PlayerData.server.luau
--- Saves and loads player Coins in DataStoreService (gracefully falls back in unpublished Studio places).
+-- Saves and loads player Coins, Wins, BestSurvival, Perks, and Cosmetics in DataStoreService (gracefully falls back in unpublished Studio places).
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local DATASTORE_NAME = "PropHuntPlayerData_v1"
+local DATASTORE_NAME = "PropHuntPlayerData_v2"
 local playerStore: DataStore? = nil
 
 -- Safely acquire DataStore (avoids errors if Studio API access is disabled)
@@ -17,7 +17,7 @@ if ok then
 	playerStore = result
 end
 
-local function loadPlayerCoins(player: Player)
+local function loadPlayerData(player: Player)
 	if not playerStore then
 		return
 	end
@@ -27,49 +27,81 @@ local function loadPlayerCoins(player: Player)
 		return playerStore:GetAsync(key)
 	end)
 
-	if success and typeof(savedData) == "table" and typeof(savedData.Coins) == "number" then
+	if success and typeof(savedData) == "table" then
 		local leaderstats = player:WaitForChild("leaderstats", 10)
-		local coins = leaderstats and leaderstats:WaitForChild("Coins", 5) :: IntValue?
-		if coins then
-			coins.Value = savedData.Coins
+		if leaderstats then
+			local coins = leaderstats:WaitForChild("Coins", 5) :: IntValue?
+			if coins and typeof(savedData.Coins) == "number" then
+				coins.Value = savedData.Coins
+			end
+			local wins = leaderstats:WaitForChild("Wins", 5) :: IntValue?
+			if wins and typeof(savedData.Wins) == "number" then
+				wins.Value = savedData.Wins
+			end
+			local bestSurvival = leaderstats:WaitForChild("BestSurvival", 5) :: IntValue?
+			if bestSurvival and typeof(savedData.BestSurvival) == "number" then
+				bestSurvival.Value = savedData.BestSurvival
+			end
+		end
+
+		if savedData.HasSpeedPerk == true then
+			player:SetAttribute("HasSpeedPerk", true)
+		end
+		if savedData.HasHealthPerk == true then
+			player:SetAttribute("HasHealthPerk", true)
+		end
+		if typeof(savedData.OwnedSkins) == "string" then
+			player:SetAttribute("OwnedSkins", savedData.OwnedSkins)
+		end
+		if typeof(savedData.EquippedSkin) == "string" then
+			player:SetAttribute("EquippedSkin", savedData.EquippedSkin)
 		end
 	end
 end
 
-local function savePlayerCoins(player: Player)
+local function savePlayerData(player: Player)
 	if not playerStore then
 		return
 	end
 
 	local leaderstats = player:FindFirstChild("leaderstats")
-	local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
-	if not coins then
+	if not leaderstats then
 		return
 	end
 
+	local coins = leaderstats:FindFirstChild("Coins") :: IntValue?
+	local wins = leaderstats:FindFirstChild("Wins") :: IntValue?
+	local bestSurvival = leaderstats:FindFirstChild("BestSurvival") :: IntValue?
+
 	local key = "Player_" .. tostring(player.UserId)
-	local coinsToSave = coins.Value
+	local dataToSave = {
+		Coins = if coins then coins.Value else 0,
+		Wins = if wins then wins.Value else 0,
+		BestSurvival = if bestSurvival then bestSurvival.Value else 0,
+		HasSpeedPerk = player:GetAttribute("HasSpeedPerk") == true,
+		HasHealthPerk = player:GetAttribute("HasHealthPerk") == true,
+		OwnedSkins = tostring(player:GetAttribute("OwnedSkins") or "Default"),
+		EquippedSkin = tostring(player:GetAttribute("EquippedSkin") or "Default"),
+	}
 
 	pcall(function()
-		playerStore:SetAsync(key, {
-			Coins = coinsToSave,
-		})
+		playerStore:SetAsync(key, dataToSave)
 	end)
 end
 
-Players.PlayerAdded:Connect(loadPlayerCoins)
+Players.PlayerAdded:Connect(loadPlayerData)
 for _, player in Players:GetPlayers() do
-	task.spawn(loadPlayerCoins, player)
+	task.spawn(loadPlayerData, player)
 end
 
-Players.PlayerRemoving:Connect(savePlayerCoins)
+Players.PlayerRemoving:Connect(savePlayerData)
 
 game:BindToClose(function()
 	if RunService:IsStudio() then
 		return
 	end
 	for _, player in Players:GetPlayers() do
-		task.spawn(savePlayerCoins, player)
+		task.spawn(savePlayerData, player)
 	end
 	task.wait(2)
 end)

@@ -208,6 +208,56 @@ local function prepareAndWeldProp(propClone: Instance, rootPart: BasePart, human
 	end
 end
 
+-- Helper: Apply cosmetic skin visual styling to the morphed prop
+local function applyCosmeticSkinToProp(player: Player, propClone: Instance)
+	local skinId = tostring(player:GetAttribute("EquippedSkin") or "Default")
+	if skinId == "Default" or skinId == "" then
+		return
+	end
+
+	local parts: { BasePart } = {}
+	if propClone:IsA("BasePart") then
+		table.insert(parts, propClone)
+	else
+		for _, desc in propClone:GetDescendants() do
+			if desc:IsA("BasePart") then
+				table.insert(parts, desc)
+			end
+		end
+	end
+
+	for _, p in parts do
+		if skinId == "GoldProp" then
+			p.Color = Color3.fromRGB(255, 200, 45)
+			p.Material = Enum.Material.Metal
+			p.Reflectance = 0.35
+		elseif skinId == "NeonCyan" then
+			p.Color = Color3.fromRGB(0, 240, 255)
+			p.Material = Enum.Material.Neon
+		elseif skinId == "RubySparkle" then
+			p.Color = Color3.fromRGB(235, 35, 70)
+			p.Material = Enum.Material.Glass
+			p.Reflectance = 0.2
+		elseif skinId == "GhostForceField" then
+			p.Color = Color3.fromRGB(145, 210, 255)
+			p.Material = Enum.Material.ForceField
+		end
+	end
+
+	local primary = if propClone:IsA("BasePart")
+		then propClone
+		elseif propClone:IsA("Model") then (propClone.PrimaryPart or propClone:FindFirstChildWhichIsA("BasePart"))
+		else nil
+
+	if primary and (skinId == "GoldProp" or skinId == "RubySparkle") then
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = if skinId == "GoldProp"
+			then Color3.fromRGB(255, 235, 110)
+			else Color3.fromRGB(255, 95, 130)
+		sparkles.Parent = primary
+	end
+end
+
 -- Core Morph Execution Function (supports switching props repeatedly AND auto-morphing!)
 local function morphHiderIntoTarget(player: Player, morphTarget: Instance): boolean
 	local isHider, character, rootPart, humanoid = isValidHider(player)
@@ -229,6 +279,7 @@ local function morphHiderIntoTarget(player: Player, morphTarget: Instance): bool
 	propClone.Name = ACTIVE_PROP_NAME
 	CollectionService:RemoveTag(propClone, MORPH_TAG)
 
+	applyCosmeticSkinToProp(player, propClone)
 	prepareAndWeldProp(propClone, rootPart, humanoid)
 	propClone.Parent = character
 

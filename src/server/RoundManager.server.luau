@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
 local voteMapEvent = PropRemotes.VoteMapRequest
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 local mapBuilderModule = script.Parent:FindFirstChild("MapBuilder") or script:FindFirstChild("MapBuilder")
 local MapBuilder = require(mapBuilderModule :: ModuleScript)
@@ -62,11 +63,61 @@ local seekersTeam = getOrCreateTeam("Seekers", BrickColor.new("Bright red"), fal
 -- Track active round participants so rewards and win checks remain accurate
 local activeHiders: { [Player]: boolean } = {}
 local activeSeekers: { [Player]: boolean } = {}
+local hiderRoundStartTimes: { [Player]: number } = {}
+local lastManStandingTriggered = false
+
+local function recordHiderSurvivalTime(player: Player)
+	local startTime = hiderRoundStartTimes[player]
+	if not startTime then
+		return
+	end
+	hiderRoundStartTimes[player] = nil
+	local survivedSeconds = math.max(0, math.floor(os.clock() - startTime))
+	local leaderstats = player:FindFirstChild("leaderstats")
+	local bestSurvival = leaderstats and leaderstats:FindFirstChild("BestSurvival") :: IntValue?
+	if bestSurvival and survivedSeconds > bestSurvival.Value then
+		bestSurvival.Value = survivedSeconds
+	end
+end
+
+local function checkLastManStanding(isSoloTest: boolean)
+	if isSoloTest or lastManStandingTriggered then
+		return
+	end
+	if workspace:GetAttribute("RoundState") ~= "HuntingPhase" then
+		return
+	end
+
+	local lastHider: Player? = nil
+	local aliveCount = 0
+	for p in activeHiders do
+		if p.Parent == Players and p.Character then
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				aliveCount += 1
+				lastHider = p
+			end
+		end
+	end
+
+	if aliveCount == 1 and lastHider then
+		lastManStandingTriggered = true
+		roundEventNotice:FireAllClients("LastManStanding", {
+			HiderName = lastHider.DisplayName,
+		})
+	end
+end
 
 local function setupPlayer(player: Player)
 	player.Team = lobbyTeam
+	if player:GetAttribute("OwnedSkins") == nil then
+		player:SetAttribute("OwnedSkins", "Default")
+	end
+	if player:GetAttribute("EquippedSkin") == nil then
+		player:SetAttribute("EquippedSkin", "Default")
+	end
 
-	-- Create leaderstats Folder and Coins IntValue
+	-- Create leaderstats Folder and Coins/Wins/BestSurvival IntValues
 	local leaderstats = player:FindFirstChild("leaderstats") :: Folder?
 	if not leaderstats then
 		leaderstats = Instance.new("Folder")
@@ -82,6 +133,22 @@ local function setupPlayer(player: Player)
 		coins.Parent = leaderstats
 	end
 
+	local wins = leaderstats:FindFirstChild("Wins") :: IntValue?
+	if not wins then
+		wins = Instance.new("IntValue")
+		wins.Name = "Wins"
+		wins.Value = 0
+		wins.Parent = leaderstats
+	end
+
+	local bestSurvival = leaderstats:FindFirstChild("BestSurvival") :: IntValue?
+	if not bestSurvival then
+		bestSurvival = Instance.new("IntValue")
+		bestSurvival.Name = "BestSurvival"
+		bestSurvival.Value = 0
+		bestSurvival.Parent = leaderstats
+	end
+
 	-- If a player dies during a round, remove them from active Hiders/Seekers and send to Lobby
 	player.CharacterAdded:Connect(function(character: Model)
 		local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
@@ -91,8 +158,10 @@ local function setupPlayer(player: Player)
 
 		humanoid.Died:Connect(function()
 			if activeHiders[player] then
+				recordHiderSurvivalTime(player)
 				activeHiders[player] = nil
 				player.Team = lobbyTeam
+				checkLastManStanding(false)
 			elseif activeSeekers[player] then
 				activeSeekers[player] = nil
 				player.Team = lobbyTeam
@@ -107,7 +176,11 @@ for _, player in Players:GetPlayers() do
 end
 
 Players.PlayerRemoving:Connect(function(player: Player)
-	activeHiders[player] = nil
+	if activeHiders[player] then
+		recordHiderSurvivalTime(player)
+		activeHiders[player] = nil
+		checkLastManStanding(false)
+	end
 	activeSeekers[player] = nil
 end)
 
@@ -180,7 +253,8 @@ local function teleportAndSetFreeze(player: Player, targetCFrame: CFrame, freeze
 			humanoid.WalkSpeed = 0
 			humanoid.JumpPower = 0
 		else
-			humanoid.WalkSpeed = 16
+			local baseSpeed = if player:GetAttribute("HasSpeedPerk") == true then 20 else 16
+			humanoid.WalkSpeed = baseSpeed
 			humanoid.JumpPower = 50
 		end
 	end
@@ -207,14 +281,20 @@ local function countAliveInSet(playerSet: { [Player]: boolean }): number
 	return count
 end
 
--- Awards 50 Coins to a list of winning players
-local function awardCoins(winners: { Player }, amount: number)
+-- Awards 50 Coins and +1 Win to a list of winning players
+local function awardWinners(winners: { Player }, amount: number)
 	for _, player in winners do
 		if player.Parent == Players then
 			local leaderstats = player:FindFirstChild("leaderstats")
-			local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
-			if coins then
-				coins.Value += amount
+			if leaderstats then
+				local coins = leaderstats:FindFirstChild("Coins") :: IntValue?
+				if coins then
+					coins.Value += amount
+				end
+				local wins = leaderstats:FindFirstChild("Wins") :: IntValue?
+				if wins then
+					wins.Value += 1
+				end
 			end
 		end
 	end
@@ -324,11 +404,14 @@ tallyVotesAndGetLeadingChoice()
 local function cleanupRound()
 	table.clear(activeHiders)
 	table.clear(activeSeekers)
+	table.clear(hiderRoundStartTimes)
 	table.clear(playerMapVotes)
+	lastManStandingTriggered = false
 
 	for _, player in Players:GetPlayers() do
 		player:SetAttribute("IsBlindfolded", false)
 		player:SetAttribute("VotedMap", "Random")
+		player:SetAttribute("RoundTauntCoins", 0)
 		player.Team = lobbyTeam
 		player:LoadCharacter()
 	end
@@ -373,9 +456,11 @@ task.spawn(function()
 			MapBuilder.Generate(finalMapId)
 		end
 
-		-- STATE 2: Role Selection (1 random Seeker, everyone else Hiders)
+		-- STATE 2: Role Selection (Scale Seekers by player count: ~1 Seeker per 4 players)
 		table.clear(activeHiders)
 		table.clear(activeSeekers)
+		table.clear(hiderRoundStartTimes)
+		lastManStandingTriggered = false
 
 		-- Store all initial Hiders so even eliminated Hiders on the winning side can be rewarded, or reward surviving Hiders
 		local roundHiderRoster: { Player } = {}
@@ -383,9 +468,20 @@ task.spawn(function()
 
 		-- Solo test: a single Studio player becomes a Hider (no Seeker) so morphing can be tested freely
 		local isSoloTest = IS_TEST and #participants == 1
-		local randomSeekerIndex = if isSoloTest then 0 else math.random(1, #participants)
-		for index, player in participants do
-			if index == randomSeekerIndex then
+		local numSeekers = if isSoloTest
+			then 0
+			else math.clamp(math.floor((#participants + 2) / 4), 1, math.max(1, #participants - 1))
+
+		-- Shuffle participants to pick random Seekers
+		local shuffled: { Player } = table.clone(participants)
+		for i = #shuffled, 2, -1 do
+			local j = math.random(1, i)
+			shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+		end
+
+		for index, player in shuffled do
+			player:SetAttribute("RoundTauntCoins", 0)
+			if index <= numSeekers then
 				player.Team = seekersTeam
 				activeSeekers[player] = true
 				table.insert(roundSeekerRoster, player)
@@ -402,12 +498,15 @@ task.spawn(function()
 		-- Brief yield for characters to finish loading
 		task.wait(0.5)
 
-		-- Teleport Hiders to Map SpawnLocation, and freeze/blind Seeker in Waiting Box
+		-- Teleport Hiders to Map SpawnLocation, and freeze/blind Seekers in Waiting Box
+		local seekerIdx = 0
 		for player in activeHiders do
 			teleportAndSetFreeze(player, getMapSpawnCFrame(), false)
 		end
 		for seeker in activeSeekers do
-			teleportAndSetFreeze(seeker, getSeekerWaitingCFrame(), true)
+			local offset = Vector3.new((seekerIdx % 3) * 4 - 4, 0, math.floor(seekerIdx / 3) * 4)
+			teleportAndSetFreeze(seeker, getSeekerWaitingCFrame() + offset, true)
+			seekerIdx += 1
 		end
 
 		-- STATE 3: Hiding Phase (30 seconds)
@@ -419,7 +518,11 @@ task.spawn(function()
 			task.wait(1)
 		end
 
-		-- Release & Teleport Seeker into the Map
+		-- Release & Teleport Seekers into the Map and start Hider survival timers
+		local huntingStartClock = os.clock()
+		for hider in activeHiders do
+			hiderRoundStartTimes[hider] = huntingStartClock
+		end
 		for seeker in activeSeekers do
 			teleportAndSetFreeze(seeker, getMapSpawnCFrame(), false)
 		end
@@ -443,25 +546,34 @@ task.spawn(function()
 			local aliveHidersCount = countAliveInSet(activeHiders)
 			local aliveSeekersCount = countAliveInSet(activeSeekers)
 
+			if aliveHidersCount == 1 then
+				checkLastManStanding(isSoloTest)
+			end
+
 			if aliveHidersCount == 0 then
 				-- All Hiders died or left -> Seekers win immediately!
 				winningSide = "Seekers"
 				break
 			elseif aliveSeekersCount == 0 and not isSoloTest then
-				-- Seeker died (e.g., from miss penalties) or left -> Hiders win immediately!
+				-- Seekers died (e.g., from miss penalties) or left -> Hiders win immediately!
 				winningSide = "Hiders"
 				break
 			end
 		end
 
-		-- STATE 5: Announce Winner, Award 50 Coins, and Cleanup
+		-- Record survival time for all remaining alive Hiders
+		for hider in activeHiders do
+			recordHiderSurvivalTime(hider)
+		end
+
+		-- STATE 5: Announce Winner, Award 50 Coins + 1 Win, and Cleanup
 		if winningSide == "Seekers" then
 			broadcastRoundState("RoundOver", POST_ROUND_TIME, "Seekers Win! (+50 Coins)")
-			awardCoins(roundSeekerRoster, WIN_REWARD_COINS)
+			awardWinners(roundSeekerRoster, WIN_REWARD_COINS)
 		else
 			broadcastRoundState("RoundOver", POST_ROUND_TIME, "Hiders Win! (+50 Coins)")
 			-- Award 50 Coins to the Hiders side
-			awardCoins(roundHiderRoster, WIN_REWARD_COINS)
+			awardWinners(roundHiderRoster, WIN_REWARD_COINS)
 		end
 
 		task.wait(POST_ROUND_TIME)

@@ -7,10 +7,15 @@
 -- 4. Seeker Blindfold Overlay: Shown when the Seeker is waiting during the Hiding Phase
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
+
+local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local roundEventNotice = PropRemotes.RoundEventNotice
 
 --------------------------------------------------------------------------------
 -- UI STYLING CONSTANTS
@@ -202,9 +207,128 @@ end
 
 local morphHintLabel = createControlHintRow("MorphHint", "[Click/E] Morph", 34)
 local lockHintLabel = createControlHintRow("LockHint", "[F] Lock Position  |  [R] Rotate 45°", 56)
-local tauntHintLabel = createControlHintRow("TauntHint", "[T] Taunt (+10 Coins)", 78)
+local tauntHintLabel = createControlHintRow("TauntHint", "[T] Taunt (+5~20 Coins, Max 50)", 78)
 local decoyHintLabel = createControlHintRow("DecoyHint", "[G] Spawn Decoy (20 Coins)", 100)
 local sprintHintLabel = createControlHintRow("SprintHint", "[Shift] Smoke Sprint (Escape)", 122)
+
+--------------------------------------------------------------------------------
+-- 4. KILL FEED (Top-Right) & LAST MAN STANDING BANNER + SOUND
+--------------------------------------------------------------------------------
+local killFeedContainer = Instance.new("Frame")
+killFeedContainer.Name = "KillFeedContainer"
+killFeedContainer.Size = UDim2.new(0, 310, 0, 180)
+killFeedContainer.Position = UDim2.new(1, -20, 0, 20)
+killFeedContainer.AnchorPoint = Vector2.new(1, 0)
+killFeedContainer.BackgroundTransparency = 1
+killFeedContainer.ZIndex = 25
+killFeedContainer.Parent = screenGui
+
+local killFeedLayout = Instance.new("UIListLayout")
+killFeedLayout.Padding = UDim.new(0, 6)
+killFeedLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+killFeedLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+killFeedLayout.SortOrder = Enum.SortOrder.LayoutOrder
+killFeedLayout.Parent = killFeedContainer
+
+local lmsBanner = Instance.new("Frame")
+lmsBanner.Name = "LastManStandingBanner"
+lmsBanner.Size = UDim2.new(0, 440, 0, 58)
+lmsBanner.Position = UDim2.new(0.5, 0, 0, 96)
+lmsBanner.AnchorPoint = Vector2.new(0.5, 0)
+lmsBanner.Visible = false
+lmsBanner.ZIndex = 30
+stylePanel(lmsBanner, 12, Color3.fromRGB(255, 195, 55))
+lmsBanner.Parent = screenGui
+
+local lmsTitle = Instance.new("TextLabel")
+lmsTitle.Size = UDim2.new(1, -20, 1, 0)
+lmsTitle.Position = UDim2.fromScale(0.5, 0.5)
+lmsTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+lmsTitle.BackgroundTransparency = 1
+lmsTitle.Font = Enum.Font.GothamBlack
+lmsTitle.TextSize = 17
+lmsTitle.TextWrapped = true
+lmsTitle.TextColor3 = Color3.fromRGB(255, 215, 70)
+lmsTitle.Text = "⚠️ เหลือผู้ซ่อนคนสุดท้าย!"
+lmsTitle.ZIndex = 31
+lmsTitle.Parent = lmsBanner
+
+local function pushKillFeedEntry(text: string, accentColor: Color3)
+	local item = Instance.new("Frame")
+	item.Size = UDim2.new(0, 300, 0, 32)
+	item.ZIndex = 26
+	stylePanel(item, 8, accentColor)
+	item.Parent = killFeedContainer
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -16, 1, 0)
+	lbl.Position = UDim2.new(0, 8, 0, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.GothamBold
+	lbl.TextSize = 12
+	lbl.TextXAlignment = Enum.TextXAlignment.Right
+	lbl.TextTruncate = Enum.TextTruncate.AtEnd
+	lbl.TextColor3 = Color3.fromRGB(245, 245, 255)
+	lbl.Text = text
+	lbl.ZIndex = 27
+	lbl.Parent = item
+
+	task.delay(5.5, function()
+		if item.Parent then
+			TweenService:Create(item, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
+			TweenService:Create(lbl, TweenInfo.new(0.35), { TextTransparency = 1 }):Play()
+			task.wait(0.38)
+			if item.Parent then
+				item:Destroy()
+			end
+		end
+	end)
+end
+
+local function triggerLastManStandingAlert(hiderName: string)
+	lmsTitle.Text = string.format("⚠️ LAST HIDER STANDING: %s!", hiderName)
+	lmsBanner.Visible = true
+	lmsBanner.BackgroundTransparency = 0.08
+
+	local alertSound = Instance.new("Sound")
+	alertSound.Name = "LastManStandingSound"
+	alertSound.SoundId = "rbxassetid://9119713951"
+	alertSound.Volume = 1.0
+	alertSound.PlaybackSpeed = 0.85
+	alertSound.Parent = screenGui
+	alertSound:Play()
+	Debris:AddItem(alertSound, 4)
+
+	task.delay(4.5, function()
+		lmsBanner.Visible = false
+	end)
+end
+
+roundEventNotice.OnClientEvent:Connect(function(eventType: string, payload: { [string]: any }?)
+	if eventType == "KillFeed" and typeof(payload) == "table" then
+		local killer = tostring(payload.Killer or "Seeker")
+		local victim = tostring(payload.Victim or "Hider")
+		local propName = tostring(payload.PropName or "Prop")
+		if payload.Reason == "SelfEliminated" then
+			pushKillFeedEntry(
+				string.format("💥 %s ตีของจริงพลาดจนตัวเองตาย!", victim),
+				Color3.fromRGB(255, 175, 65)
+			)
+		else
+			pushKillFeedEntry(
+				string.format("⚔️ %s จัดการ %s (%s)", killer, victim, propName),
+				Color3.fromRGB(255, 85, 85)
+			)
+		end
+	elseif eventType == "LastManStanding" and typeof(payload) == "table" then
+		local hiderName = tostring(payload.HiderName or "Hider")
+		triggerLastManStandingAlert(hiderName)
+		pushKillFeedEntry(
+			string.format("🔥 เหลือ Hider คนสุดท้าย: %s!", hiderName),
+			Color3.fromRGB(255, 215, 70)
+		)
+	end
+end)
 
 --------------------------------------------------------------------------------
 -- 4. SEEKER BLINDFOLD OVERLAY (Shown when Seeker is waiting in Hiding Phase)

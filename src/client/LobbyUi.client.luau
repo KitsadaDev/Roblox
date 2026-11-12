@@ -284,27 +284,45 @@ for idx, opt in MAP_OPTIONS do
 end
 
 --------------------------------------------------------------------------------
--- BOTTOM LEFT: LIVE PLAYER ROSTER (ผู้เล่นในห้อง)
+-- BOTTOM LEFT: LIVE PLAYER ROSTER & LEADERBOARD (เรียงตามผู้เล่น / ชนะ / รอดชีวิต)
 --------------------------------------------------------------------------------
 local rosterPanel = Instance.new("Frame")
 rosterPanel.Name = "RosterPanel"
-rosterPanel.Size = UDim2.new(0, 255, 0, 218)
+rosterPanel.Size = UDim2.new(0, 265, 0, 218)
 rosterPanel.Position = UDim2.new(0, 16, 0, 236)
 rosterPanel.ZIndex = 31
 styleCard(rosterPanel, Color3.fromRGB(24, 28, 40), 12, Color3.fromRGB(60, 70, 95), 0.4)
 rosterPanel.Parent = mainCard
 
 local rosterTitle = Instance.new("TextLabel")
-rosterTitle.Size = UDim2.new(1, -24, 0, 26)
-rosterTitle.Position = UDim2.new(0, 12, 0, 8)
+rosterTitle.Size = UDim2.new(0.46, 0, 0, 24)
+rosterTitle.Position = UDim2.new(0, 10, 0, 6)
 rosterTitle.BackgroundTransparency = 1
 rosterTitle.Font = Enum.Font.GothamBlack
-rosterTitle.TextSize = 14
+rosterTitle.TextSize = 13
 rosterTitle.TextXAlignment = Enum.TextXAlignment.Left
 rosterTitle.TextColor3 = Color3.fromRGB(110, 200, 255)
-rosterTitle.Text = "ผู้เล่นในห้อง (0 คน)"
+rosterTitle.Text = "อันดับผู้เล่น"
 rosterTitle.ZIndex = 32
 rosterTitle.Parent = rosterPanel
+
+local currentLeaderboardMode: "Roster" | "Wins" | "Survival" = "Wins"
+
+local modeToggleBtn = Instance.new("TextButton")
+modeToggleBtn.Size = UDim2.new(0.50, -10, 0, 22)
+modeToggleBtn.Position = UDim2.new(1, -8, 0, 7)
+modeToggleBtn.AnchorPoint = Vector2.new(1, 0)
+modeToggleBtn.BackgroundColor3 = Color3.fromRGB(36, 44, 64)
+modeToggleBtn.Font = Enum.Font.GothamBold
+modeToggleBtn.TextSize = 11
+modeToggleBtn.TextColor3 = Color3.fromRGB(255, 215, 75)
+modeToggleBtn.Text = "🏆 ชนะเยอะสุด"
+modeToggleBtn.ZIndex = 33
+modeToggleBtn.Parent = rosterPanel
+
+local modeBtnCorner = Instance.new("UICorner")
+modeBtnCorner.CornerRadius = UDim.new(0, 6)
+modeBtnCorner.Parent = modeToggleBtn
 
 local rosterList = Instance.new("ScrollingFrame")
 rosterList.Name = "PlayerList"
@@ -324,55 +342,55 @@ listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 listLayout.Parent = rosterList
 
 --------------------------------------------------------------------------------
--- BOTTOM RIGHT: HOW TO PLAY & COINS PERK SHOP
+-- BOTTOM RIGHT: HOW TO PLAY, PERK SHOP & COSMETIC PROP SKINS
 --------------------------------------------------------------------------------
 local rightPanel = Instance.new("Frame")
 rightPanel.Name = "RightPanel"
-rightPanel.Size = UDim2.new(1, -297, 0, 218)
-rightPanel.Position = UDim2.new(0, 281, 0, 236)
+rightPanel.Size = UDim2.new(1, -307, 0, 218)
+rightPanel.Position = UDim2.new(0, 291, 0, 236)
 rightPanel.BackgroundTransparency = 1
 rightPanel.ZIndex = 31
 rightPanel.Parent = mainCard
 
 -- Quick Rules Summary
 local guideCard = Instance.new("Frame")
-guideCard.Size = UDim2.new(1, 0, 0, 96)
+guideCard.Size = UDim2.new(1, 0, 0, 68)
 guideCard.Position = UDim2.new(0, 0, 0, 0)
 guideCard.ZIndex = 32
-styleCard(guideCard, Color3.fromRGB(24, 32, 48), 12, Color3.fromRGB(75, 185, 255), 0.35)
+styleCard(guideCard, Color3.fromRGB(24, 32, 48), 10, Color3.fromRGB(75, 185, 255), 0.35)
 guideCard.Parent = rightPanel
 
 local guideText = Instance.new("TextLabel")
-guideText.Size = UDim2.new(1, -24, 1, -16)
-guideText.Position = UDim2.new(0, 12, 0, 8)
+guideText.Size = UDim2.new(1, -20, 1, -10)
+guideText.Position = UDim2.new(0, 10, 0, 5)
 guideText.BackgroundTransparency = 1
 guideText.Font = Enum.Font.GothamMedium
-guideText.TextSize = 12
+guideText.TextSize = 11
 guideText.TextWrapped = true
 guideText.TextXAlignment = Enum.TextXAlignment.Left
 guideText.TextYAlignment = Enum.TextYAlignment.Center
 guideText.TextColor3 = Color3.fromRGB(225, 235, 250)
-guideText.Text = "• ฝ่ายซ่อน (Hiders): [คลิก/E] แปลงร่าง  |  [F] ล็อกตัวนิ่ง  |  [V] ส่องดูเพื่อนตอนล็อกตัว  |  [T] ผิวปาก (+10 Coins)\n• ฝ่ายหา (Seeker): [คลิก] โจมตีของที่สงสัย (ทำดาเมจ 50 HP / ตีผิดเสียเลือดตัวเอง -15 HP)  |  [Q] เรดาร์สแกน\n• ชนะรอบรับทันที +50 Coins!"
+guideText.Text = "• ฝ่ายซ่อน (Hiders): [E] แปลงร่าง | [F] ล็อกตัว | [T] ผิวปาก (+5~20 Coins ตามความใกล้ Seeker, สูงสุด 50/รอบ)\n• ฝ่ายหา (Seekers ปรับตามจำนวนผู้เล่น 1:4): [คลิก] ตี (โดนของจริง -15 HP) | [Q] เรดาร์สแกน"
 guideText.ZIndex = 33
 guideText.Parent = guideCard
 
--- Lobby Perk Shop Section
+-- Lobby Perk & Cosmetics Shop Section
 local shopCard = Instance.new("Frame")
-shopCard.Size = UDim2.new(1, 0, 0, 112)
-shopCard.Position = UDim2.new(0, 0, 0, 106)
+shopCard.Size = UDim2.new(1, 0, 0, 142)
+shopCard.Position = UDim2.new(0, 0, 0, 76)
 shopCard.ZIndex = 32
 styleCard(shopCard, Color3.fromRGB(24, 28, 40), 12, Color3.fromRGB(255, 205, 70), 0.35)
 shopCard.Parent = rightPanel
 
 local shopHeader = Instance.new("TextLabel")
-shopHeader.Size = UDim2.new(1, -24, 0, 22)
-shopHeader.Position = UDim2.new(0, 12, 0, 6)
+shopHeader.Size = UDim2.new(1, -24, 0, 20)
+shopHeader.Position = UDim2.new(0, 12, 0, 5)
 shopHeader.BackgroundTransparency = 1
 shopHeader.Font = Enum.Font.GothamBlack
-shopHeader.TextSize = 13
+shopHeader.TextSize = 12
 shopHeader.TextXAlignment = Enum.TextXAlignment.Left
 shopHeader.TextColor3 = Color3.fromRGB(255, 215, 75)
-shopHeader.Text = "ร้านค้าอัปเกรดตัวละคร (ใช้ Coins)"
+shopHeader.Text = "ร้านค้า Perk & สกิน Prop พิเศษ (ใช้ Coins)"
 shopHeader.ZIndex = 33
 shopHeader.Parent = shopCard
 
@@ -384,15 +402,15 @@ local function createShopButton(
 	onClick: () -> ()
 ): TextButton
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0.47, 0, 0, 72)
-	btn.Position = UDim2.new(xScale, 0, 0, 32)
+	btn.Size = UDim2.new(0.47, 0, 0, 48)
+	btn.Position = UDim2.new(xScale, 0, 0, 27)
 	btn.BackgroundColor3 = Color3.fromRGB(32, 38, 54)
 	btn.Text = ""
 	btn.ZIndex = 33
 	btn.Parent = shopCard
 
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 10)
+	c.CornerRadius = UDim.new(0, 8)
 	c.Parent = btn
 
 	local s = Instance.new("UIStroke")
@@ -403,11 +421,11 @@ local function createShopButton(
 
 	local tLabel = Instance.new("TextLabel")
 	tLabel.Name = "Title"
-	tLabel.Size = UDim2.new(1, -12, 0, 20)
-	tLabel.Position = UDim2.new(0, 6, 0, 6)
+	tLabel.Size = UDim2.new(1, -12, 0, 18)
+	tLabel.Position = UDim2.new(0, 6, 0, 4)
 	tLabel.BackgroundTransparency = 1
 	tLabel.Font = Enum.Font.GothamBlack
-	tLabel.TextSize = 13
+	tLabel.TextSize = 12
 	tLabel.TextColor3 = accentCol
 	tLabel.Text = title
 	tLabel.ZIndex = 34
@@ -415,11 +433,11 @@ local function createShopButton(
 
 	local dLabel = Instance.new("TextLabel")
 	dLabel.Name = "Sub"
-	dLabel.Size = UDim2.new(1, -12, 0, 38)
-	dLabel.Position = UDim2.new(0, 6, 0, 28)
+	dLabel.Size = UDim2.new(1, -12, 0, 22)
+	dLabel.Position = UDim2.new(0, 6, 0, 22)
 	dLabel.BackgroundTransparency = 1
 	dLabel.Font = Enum.Font.GothamBold
-	dLabel.TextSize = 11
+	dLabel.TextSize = 10
 	dLabel.TextWrapped = true
 	dLabel.TextColor3 = Color3.fromRGB(230, 235, 245)
 	dLabel.Text = subText
@@ -432,7 +450,7 @@ end
 
 local speedPerkBtn = createShopButton(
 	"รองเท้าวิ่งไว (+Speed)",
-	"วิ่งเร็วขึ้นเป็น 20 (ราคา: 30 Coins)",
+	"ความเร็ว 20 (30 Coins)",
 	0.02,
 	Color3.fromRGB(80, 220, 255),
 	function()
@@ -442,13 +460,85 @@ local speedPerkBtn = createShopButton(
 
 local healthPerkBtn = createShopButton(
 	"เกราะเพิ่มเลือด (+50 HP)",
-	"เลือดสูงสุดเป็น 150 HP (ราคา: 40 Coins)",
+	"เลือด 150 HP (40 Coins)",
 	0.51,
 	Color3.fromRGB(95, 240, 130),
 	function()
 		abilityRequestEvent:FireServer("BuyHealthPerk")
 	end
 )
+
+type SkinOption = {
+	Id: string,
+	Name: string,
+	Cost: number,
+	Color: Color3,
+}
+
+local SKIN_OPTIONS: { SkinOption } = {
+	{ Id = "Default", Name = "ปกติ", Cost = 0, Color = Color3.fromRGB(185, 195, 210) },
+	{ Id = "GoldProp", Name = "ทองคำ ✨", Cost = 100, Color = Color3.fromRGB(255, 205, 55) },
+	{ Id = "NeonCyan", Name = "นีออนฟ้า", Cost = 150, Color = Color3.fromRGB(0, 235, 255) },
+	{ Id = "RubySparkle", Name = "ทับทิม ✨", Cost = 200, Color = Color3.fromRGB(255, 70, 105) },
+	{ Id = "GhostForceField", Name = "วิญญาณ", Cost = 250, Color = Color3.fromRGB(155, 215, 255) },
+}
+
+local skinButtonsById: { [string]: TextButton } = {}
+
+for idx, skin in SKIN_OPTIONS do
+	local widthScale = 0.184
+	local xScale = 0.02 + (idx - 1) * 0.194
+
+	local sBtn = Instance.new("TextButton")
+	sBtn.Name = "Skin_" .. skin.Id
+	sBtn.Size = UDim2.new(widthScale, 0, 0, 52)
+	sBtn.Position = UDim2.new(xScale, 0, 0, 82)
+	sBtn.BackgroundColor3 = Color3.fromRGB(30, 35, 50)
+	sBtn.Text = ""
+	sBtn.ZIndex = 33
+	sBtn.Parent = shopCard
+
+	local sc = Instance.new("UICorner")
+	sc.CornerRadius = UDim.new(0, 8)
+	sc.Parent = sBtn
+
+	local ss = Instance.new("UIStroke")
+	ss.Name = "Stroke"
+	ss.Color = skin.Color
+	ss.Thickness = 1.5
+	ss.Transparency = 0.35
+	ss.Parent = sBtn
+
+	local sTitle = Instance.new("TextLabel")
+	sTitle.Name = "Title"
+	sTitle.Size = UDim2.new(1, -6, 0, 20)
+	sTitle.Position = UDim2.new(0, 3, 0, 5)
+	sTitle.BackgroundTransparency = 1
+	sTitle.Font = Enum.Font.GothamBlack
+	sTitle.TextSize = 11
+	sTitle.TextColor3 = skin.Color
+	sTitle.Text = skin.Name
+	sTitle.ZIndex = 34
+	sTitle.Parent = sBtn
+
+	local sSub = Instance.new("TextLabel")
+	sSub.Name = "Status"
+	sSub.Size = UDim2.new(1, -6, 0, 20)
+	sSub.Position = UDim2.new(0, 3, 0, 26)
+	sSub.BackgroundTransparency = 1
+	sSub.Font = Enum.Font.GothamBold
+	sSub.TextSize = 10
+	sSub.TextColor3 = Color3.fromRGB(230, 235, 245)
+	sSub.Text = if skin.Cost == 0 then "ฟรี" else string.format("%d C", skin.Cost)
+	sSub.ZIndex = 34
+	sSub.Parent = sBtn
+
+	sBtn.Activated:Connect(function()
+		abilityRequestEvent:FireServer("BuyOrEquipSkin", skin.Id)
+	end)
+
+	skinButtonsById[skin.Id] = sBtn
+end
 
 --------------------------------------------------------------------------------
 -- REACTIVE UPDATES (MAP VOTES, ROSTER, STATUS & VISIBILITY)
@@ -496,18 +586,61 @@ local function updateMapVoteUI()
 	end
 end
 
+local function ownsSkinClient(skinId: string): boolean
+	if skinId == "Default" then
+		return true
+	end
+	local ownedStr = tostring(localPlayer:GetAttribute("OwnedSkins") or "Default")
+	for _, token in string.split(ownedStr, ",") do
+		if token == skinId then
+			return true
+		end
+	end
+	return false
+end
+
 local function refreshPerkButtons()
 	local hasSpeed = localPlayer:GetAttribute("HasSpeedPerk") == true
 	local hasHealth = localPlayer:GetAttribute("HasHealthPerk") == true
 
 	local speedSub = speedPerkBtn:FindFirstChild("Sub") :: TextLabel?
 	if speedSub then
-		speedSub.Text = if hasSpeed then "ปลดล็อกแล้ว (ใช้งานอยู่!)" else "วิ่งเร็วขึ้นเป็น 20 (ราคา: 30 Coins)"
+		speedSub.Text = if hasSpeed then "✓ ใช้งานอยู่!" else "ความเร็ว 20 (30 C)"
 	end
 
 	local healthSub = healthPerkBtn:FindFirstChild("Sub") :: TextLabel?
 	if healthSub then
-		healthSub.Text = if hasHealth then "ปลดล็อกแล้ว (ใช้งานอยู่!)" else "เลือดสูงสุดเป็น 150 HP (ราคา: 40 Coins)"
+		healthSub.Text = if hasHealth then "✓ ใช้งานอยู่!" else "เลือด 150 HP (40 C)"
+	end
+
+	local equippedSkin = tostring(localPlayer:GetAttribute("EquippedSkin") or "Default")
+	for _, skin in SKIN_OPTIONS do
+		local sBtn = skinButtonsById[skin.Id]
+		if not sBtn then
+			continue
+		end
+		local owned = ownsSkinClient(skin.Id)
+		local isEquipped = (equippedSkin == skin.Id)
+
+		local statusLbl = sBtn:FindFirstChild("Status") :: TextLabel?
+		if statusLbl then
+			if isEquipped then
+				statusLbl.Text = "✓ ใส่อยู่"
+				statusLbl.TextColor3 = Color3.fromRGB(95, 255, 140)
+			elseif owned then
+				statusLbl.Text = "กดใส่"
+				statusLbl.TextColor3 = Color3.fromRGB(200, 225, 255)
+			else
+				statusLbl.Text = string.format("%d C", skin.Cost)
+				statusLbl.TextColor3 = Color3.fromRGB(255, 215, 75)
+			end
+		end
+
+		local stroke = sBtn:FindFirstChild("Stroke") :: UIStroke?
+		if stroke then
+			stroke.Thickness = if isEquipped then 2.5 else 1.5
+			stroke.Transparency = if isEquipped then 0 else 0.35
+		end
 	end
 end
 
@@ -519,7 +652,30 @@ local function rebuildPlayerRoster()
 	end
 
 	local allPlayers = Players:GetPlayers()
-	rosterTitle.Text = string.format("ผู้เล่นในห้อง (%d คน)", #allPlayers)
+	rosterTitle.Text = string.format("ผู้เล่น (%d คน)", #allPlayers)
+
+	local function getStat(p: Player, statName: string): number
+		local ls = p:FindFirstChild("leaderstats")
+		local valObj = ls and ls:FindFirstChild(statName) :: IntValue?
+		return if valObj then valObj.Value else 0
+	end
+
+	if currentLeaderboardMode == "Wins" then
+		modeToggleBtn.Text = "🏆 ชนะเยอะสุด"
+		table.sort(allPlayers, function(a, b)
+			return getStat(a, "Wins") > getStat(b, "Wins")
+		end)
+	elseif currentLeaderboardMode == "Survival" then
+		modeToggleBtn.Text = "⏱️ ซ่อนรอดนานสุด"
+		table.sort(allPlayers, function(a, b)
+			return getStat(a, "BestSurvival") > getStat(b, "BestSurvival")
+		end)
+	else
+		modeToggleBtn.Text = "💰 เหรียญเยอะสุด"
+		table.sort(allPlayers, function(a, b)
+			return getStat(a, "Coins") > getStat(b, "Coins")
+		end)
+	end
 
 	for idx, p in allPlayers do
 		local row = Instance.new("Frame")
@@ -556,7 +712,7 @@ local function rebuildPlayerRoster()
 		end)
 
 		local nameLbl = Instance.new("TextLabel")
-		nameLbl.Size = UDim2.new(1, -105, 0, 18)
+		nameLbl.Size = UDim2.new(1, -110, 0, 18)
 		nameLbl.Position = UDim2.new(0, 42, 0, 4)
 		nameLbl.BackgroundTransparency = 1
 		nameLbl.Font = Enum.Font.GothamBold
@@ -564,29 +720,34 @@ local function rebuildPlayerRoster()
 		nameLbl.TextXAlignment = Enum.TextXAlignment.Left
 		nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
 		nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nameLbl.Text = p.DisplayName
+		nameLbl.Text = string.format("#%d %s", idx, p.DisplayName)
 		nameLbl.ZIndex = 34
 		nameLbl.Parent = row
 
+		local winsVal = getStat(p, "Wins")
+		local survVal = getStat(p, "BestSurvival")
+		local coinVal = getStat(p, "Coins")
+
 		local roleName = if p.Team then p.Team.Name else "Lobby"
 		local roleLbl = Instance.new("TextLabel")
-		roleLbl.Size = UDim2.new(1, -105, 0, 15)
+		roleLbl.Size = UDim2.new(1, -110, 0, 15)
 		roleLbl.Position = UDim2.new(0, 42, 0, 22)
 		roleLbl.BackgroundTransparency = 1
 		roleLbl.Font = Enum.Font.GothamMedium
-		roleLbl.TextSize = 11
+		roleLbl.TextSize = 10
 		roleLbl.TextXAlignment = Enum.TextXAlignment.Left
 		roleLbl.TextColor3 = Color3.fromRGB(160, 175, 205)
-		roleLbl.Text = "ทีม: " .. roleName
+		roleLbl.Text = string.format("%s | 🏆%d | ⏱️%ds", roleName, winsVal, survVal)
 		roleLbl.ZIndex = 34
 		roleLbl.Parent = row
 
-		local leaderstats = p:FindFirstChild("leaderstats")
-		local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
-		local coinVal = if coins then coins.Value else 0
+		local rightText = if currentLeaderboardMode == "Wins"
+			then string.format("🏆 %d", winsVal)
+			elseif currentLeaderboardMode == "Survival" then string.format("⏱️ %ds", survVal)
+			else string.format("%d C", coinVal)
 
 		local coinLbl = Instance.new("TextLabel")
-		coinLbl.Size = UDim2.new(0, 58, 1, 0)
+		coinLbl.Size = UDim2.new(0, 64, 1, 0)
 		coinLbl.Position = UDim2.new(1, -8, 0, 0)
 		coinLbl.AnchorPoint = Vector2.new(1, 0)
 		coinLbl.BackgroundTransparency = 1
@@ -594,11 +755,22 @@ local function rebuildPlayerRoster()
 		coinLbl.TextSize = 12
 		coinLbl.TextXAlignment = Enum.TextXAlignment.Right
 		coinLbl.TextColor3 = Color3.fromRGB(255, 215, 75)
-		coinLbl.Text = string.format("%d C", coinVal)
+		coinLbl.Text = rightText
 		coinLbl.ZIndex = 34
 		coinLbl.Parent = row
 	end
 end
+
+modeToggleBtn.Activated:Connect(function()
+	if currentLeaderboardMode == "Wins" then
+		currentLeaderboardMode = "Survival"
+	elseif currentLeaderboardMode == "Survival" then
+		currentLeaderboardMode = "Roster"
+	else
+		currentLeaderboardMode = "Wins"
+	end
+	rebuildPlayerRoster()
+end)
 
 local function updateLobbyVisibility()
 	local isLobbyTeam = not localPlayer.Team or localPlayer.Team.Name == "Lobby"
@@ -649,6 +821,8 @@ localPlayer:GetPropertyChangedSignal("Team"):Connect(function()
 end)
 localPlayer:GetAttributeChangedSignal("HasSpeedPerk"):Connect(refreshPerkButtons)
 localPlayer:GetAttributeChangedSignal("HasHealthPerk"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("OwnedSkins"):Connect(refreshPerkButtons)
+localPlayer:GetAttributeChangedSignal("EquippedSkin"):Connect(refreshPerkButtons)
 localPlayer:GetAttributeChangedSignal("VotedMap"):Connect(updateMapVoteUI)
 
 for _, opt in MAP_OPTIONS do

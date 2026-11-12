@@ -61,6 +61,6 @@ end
 
 -- Bind "T" key and create mobile button
 ContextActionService:BindAction(ACTION_NAME, handleTauntAction, true, Enum.KeyCode.T)
-ContextActionService:SetTitle(ACTION_NAME, "Taunt (+10)")
+ContextActionService:SetTitle(ACTION_NAME, "Taunt (+5~20)")
 ContextActionService:SetPosition(ACTION_NAME, UDim2.new(0.72, 0, 0.42, 0))
 

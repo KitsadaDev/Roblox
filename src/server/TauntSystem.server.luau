@@ -17,10 +17,11 @@ local tauntRequestEvent = PropRemotes.TauntRequest
 
 -- Constants
 local MANUAL_TAUNT_COOLDOWN = 10.0 -- 10-second cooldown per player
-local MANUAL_TAUNT_REWARD = 10 -- +10 Coins for manual taunt
+local MAX_TAUNT_COINS_PER_ROUND = 50 -- Cap taunt coin rewards per round
 local AUTO_TAUNT_INTERVAL = 30.0 -- Every 30 seconds during Hunting Phase
 local EXCLAMATION_DURATION = 1.5 -- 1.5 seconds floating "!" indicator
 local HIDERS_TEAM_NAME = "Hiders"
+local SEEKERS_TEAM_NAME = "Seekers"
 
 -- 5 Default Valid Roblox Sound Asset IDs (Whistle, Boing, Horn, Laugh, Slide Whistle)
 local TAUNT_SOUND_IDS = {
@@ -70,20 +71,39 @@ local function playTauntSound(rootPart: BasePart)
 	Debris:AddItem(sound, 5)
 end
 
--- Helper: Show a floating "!" BillboardGui above the Hider for 1.5 seconds
-local function showExclamationBillboard(rootPart: BasePart)
+-- Helper: Calculate distance-based Taunt Coin reward (closer to Seekers = higher reward!)
+local function getNearestSeekerDistance(hiderPos: Vector3): number
+	local seekersTeam = Teams:FindFirstChild(SEEKERS_TEAM_NAME)
+	local minDist = math.huge
+	for _, p in Players:GetPlayers() do
+		if seekersTeam and p.Team == seekersTeam and p.Character then
+			local root = p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local hum = p.Character:FindFirstChildOfClass("Humanoid")
+			if root and hum and hum.Health > 0 then
+				local d = (hiderPos - root.Position).Magnitude
+				if d < minDist then
+					minDist = d
+				end
+			end
+		end
+	end
+	return minDist
+end
+
+-- Helper: Show floating "+X Coins" feedback on the Hider's exclamation badge
+local function showExclamationBillboard(rootPart: BasePart, coinsEarned: number)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "TauntExclamationGui"
 	billboard.Adornee = rootPart
-	billboard.Size = UDim2.new(0, 64, 0, 64)
+	billboard.Size = UDim2.new(0, 80, 0, 74)
 	billboard.StudsOffset = Vector3.new(0, 4.5, 0)
 	billboard.AlwaysOnTop = false -- Respects walls unless Seeker has line-of-sight
 	billboard.MaxDistance = 80
 	billboard.Parent = rootPart
 
 	local badge = Instance.new("Frame")
-	badge.Size = UDim2.fromScale(0.8, 0.8)
-	badge.Position = UDim2.fromScale(0.5, 0.5)
+	badge.Size = UDim2.new(0, 52, 0, 52)
+	badge.Position = UDim2.fromScale(0.5, 0.42)
 	badge.AnchorPoint = Vector2.new(0.5, 0.5)
 	badge.BackgroundColor3 = Color3.fromRGB(255, 210, 45)
 	badge.BorderSizePixel = 0
@@ -107,6 +127,18 @@ local function showExclamationBillboard(rootPart: BasePart)
 	label.Text = "!"
 	label.Parent = badge
 
+	local coinText = Instance.new("TextLabel")
+	coinText.Size = UDim2.new(1, 0, 0, 18)
+	coinText.Position = UDim2.fromScale(0.5, 0.88)
+	coinText.AnchorPoint = Vector2.new(0.5, 0.5)
+	coinText.BackgroundTransparency = 1
+	coinText.Font = Enum.Font.GothamBlack
+	coinText.TextSize = 13
+	coinText.TextColor3 = Color3.fromRGB(85, 255, 130)
+	coinText.TextStrokeTransparency = 0.2
+	coinText.Text = if coinsEarned > 0 then string.format("+%d Coins", coinsEarned) else "MAX (50/50)"
+	coinText.Parent = billboard
+
 	-- Pop-up bounce animation
 	TweenService:Create(
 		billboard,
@@ -120,23 +152,43 @@ local function showExclamationBillboard(rootPart: BasePart)
 			TweenService:Create(badge, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
 			TweenService:Create(label, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
 			TweenService:Create(stroke, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+			TweenService:Create(coinText, TweenInfo.new(0.3), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
 		end
 	end)
 
 	Debris:AddItem(billboard, EXCLAMATION_DURATION)
 end
 
--- Helper: Award Coins to Hider's leaderstats
-local function awardTauntCoins(player: Player, amount: number)
+-- Helper: Award Coins to Hider's leaderstats based on Seeker distance and per-round cap
+local function calculateAndAwardTauntCoins(player: Player, rootPos: Vector3): number
+	local earnedSoFar = (player:GetAttribute("RoundTauntCoins") :: number?) or 0
+	if earnedSoFar >= MAX_TAUNT_COINS_PER_ROUND then
+		return 0
+	end
+
+	local dist = getNearestSeekerDistance(rootPos)
+	local baseReward = if dist <= 25
+		then 20 -- High risk: Seeker is right next to you!
+		elseif dist <= 55 then 12 -- Medium risk: Seeker is within earshot
+		else 5 -- Low risk: Seeker is far away
+
+	local actualReward = math.min(baseReward, MAX_TAUNT_COINS_PER_ROUND - earnedSoFar)
+	if actualReward <= 0 then
+		return 0
+	end
+
+	player:SetAttribute("RoundTauntCoins", earnedSoFar + actualReward)
+
 	local leaderstats = player:FindFirstChild("leaderstats")
 	local coins = leaderstats and leaderstats:FindFirstChild("Coins") :: IntValue?
 	if coins then
-		coins.Value += amount
+		coins.Value += actualReward
 	end
+	return actualReward
 end
 
 --------------------------------------------------------------------------------
--- 1. MANUAL TAUNT HANDLER (Risk vs. Reward)
+-- 1. MANUAL TAUNT HANDLER (Risk vs. Reward: Distance-scaled + 50 Coins/round cap)
 --------------------------------------------------------------------------------
 tauntRequestEvent.OnServerEvent:Connect(function(player: Player)
 	-- Only allow manual taunts during the Hunting Phase
@@ -157,10 +209,10 @@ tauntRequestEvent.OnServerEvent:Connect(function(player: Player)
 
 	manualTauntCooldowns[player] = now
 
-	-- Play 3D sound, display 1.5s floating "!" BillboardGui, and award +10 Coins
+	-- Play 3D sound, award distance-based Coins (up to 50/round), and display floating "!" BillboardGui
 	playTauntSound(rootPart)
-	showExclamationBillboard(rootPart)
-	awardTauntCoins(player, MANUAL_TAUNT_REWARD)
+	local rewarded = calculateAndAwardTauntCoins(player, rootPart.Position)
+	showExclamationBillboard(rootPart, rewarded)
 end)
 
 --------------------------------------------------------------------------------

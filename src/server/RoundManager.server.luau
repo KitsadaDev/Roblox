@@ -27,10 +27,22 @@ local IS_TEST = TEST_MODE and RunService:IsStudio()
 -- Round Timing Constants (in seconds)
 local MIN_PLAYERS = if IS_TEST then 1 else 2
 local INTERMISSION_TIME = if IS_TEST then 14 else 20
-local HIDING_PHASE_TIME = if IS_TEST then 10 else 30
-local HUNTING_PHASE_TIME = if IS_TEST then 60 else 180
+local HIDING_PHASE_TIME = if IS_TEST then 10 else 60
 local POST_ROUND_TIME = 5
 local WIN_REWARD_COINS = 50
+
+local function getHuntingPhaseTime(playerCount: number): number
+	if IS_TEST then
+		return 60
+	end
+	if playerCount <= 8 then
+		return 300 -- 5 minutes (2-8 players)
+	elseif playerCount <= 20 then
+		return 480 -- 8 minutes (9-20 players)
+	else
+		return 720 -- 12 minutes (21+ players)
+	end
+end
 
 if IS_TEST then
 	warn("[RoundManager] TEST MODE is ON (Studio only): short timers, solo play allowed. Set TEST_MODE = false before publishing.")
@@ -529,7 +541,7 @@ task.spawn(function()
 			seekerIdx += 1
 		end
 
-		-- STATE 3: Hiding Phase (30 seconds)
+		-- STATE 3: Hiding Phase (60 seconds in normal mode)
 		for remaining = HIDING_PHASE_TIME, 1, -1 do
 			if countAliveInSet(activeHiders) == 0 or (not isSoloTest and countAliveInSet(activeSeekers) == 0) then
 				break
@@ -547,9 +559,9 @@ task.spawn(function()
 			teleportAndSetFreeze(seeker, getMapSpawnCFrame(), false)
 		end
 
-		-- STATE 4: Hunting Phase (180 seconds) & Continuous Win Condition Check
+		-- STATE 4: Hunting Phase (scaled by player count) & Continuous Win Condition Check
 		local winningSide: "Seekers" | "Hiders" = "Hiders"
-		local timeRemaining = HUNTING_PHASE_TIME
+		local timeRemaining = getHuntingPhaseTime(#participants)
 
 		while timeRemaining > 0 do
 			broadcastRoundState(

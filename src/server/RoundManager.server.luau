@@ -36,11 +36,13 @@ local function getHuntingPhaseTime(playerCount: number): number
 		return 60
 	end
 	if playerCount <= 8 then
-		return 300 -- 5 minutes (2-8 players)
+		return 180 -- 3 minutes (2-8 players)
 	elseif playerCount <= 20 then
-		return 480 -- 8 minutes (9-20 players)
+		return 210 -- 3.5 minutes (9-20 players)
+	elseif playerCount <= 35 then
+		return 240 -- 4 minutes (21-35 players)
 	else
-		return 720 -- 12 minutes (21+ players)
+		return 300 -- 5 minutes (36+ players)
 	end
 end
 

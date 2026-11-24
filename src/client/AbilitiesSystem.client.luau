@@ -12,6 +12,7 @@ local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 local abilityRequestEvent = PropRemotes.AbilityRequest
 local radarFeedbackEvent = PropRemotes.RadarFeedback
 local roundEventNotice = PropRemotes.RoundEventNotice
@@ -52,6 +53,19 @@ toastStroke.Color = Color3.fromRGB(255, 205, 70)
 toastStroke.Thickness = 1.6
 toastStroke.Transparency = 1
 toastStroke.Parent = radarToast
+
+local toastScale = Instance.new("UIScale")
+toastScale.Parent = radarToast
+
+local function updateToastResponsive()
+	local isPhone = MobileActionBus.IsCompactPhone()
+	toastScale.Scale = if isPhone then 0.76 else 1.0
+	radarToast.Position = if isPhone then UDim2.new(0.5, 0, 0, 68) else UDim2.new(0.5, 0, 0, 92)
+end
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateToastResponsive)
+	updateToastResponsive()
+end
 
 local function showToastMessage(text: string, color: Color3)
 	radarToast.Text = text
@@ -103,15 +117,14 @@ local function isSeeker(): boolean
 	return seekersTeam ~= nil and localPlayer.Team == seekersTeam
 end
 
+-- Bind PC keys only (false = no overlapping default ContextActionService grey touch buttons!)
 ContextActionService:BindAction("HiderSpawnDecoy", function(_name, state, _input)
 	if state ~= Enum.UserInputState.Begin or not isHider() then
 		return Enum.ContextActionResult.Pass
 	end
 	abilityRequestEvent:FireServer("SpawnDecoy")
 	return Enum.ContextActionResult.Sink
-end, true, Enum.KeyCode.G)
-ContextActionService:SetTitle("HiderSpawnDecoy", "Decoy [G]")
-ContextActionService:SetPosition("HiderSpawnDecoy", UDim2.new(0.60, 0, 0.42, 0))
+end, false, Enum.KeyCode.G)
 
 ContextActionService:BindAction("HiderSmokeSprint", function(_name, state, _input)
 	if state ~= Enum.UserInputState.Begin or not isHider() then
@@ -119,9 +132,7 @@ ContextActionService:BindAction("HiderSmokeSprint", function(_name, state, _inpu
 	end
 	abilityRequestEvent:FireServer("SmokeSprint")
 	return Enum.ContextActionResult.Sink
-end, true, Enum.KeyCode.LeftShift)
-ContextActionService:SetTitle("HiderSmokeSprint", "Sprint")
-ContextActionService:SetPosition("HiderSmokeSprint", UDim2.new(0.84, 0, 0.42, 0))
+end, false, Enum.KeyCode.LeftShift)
 
 ContextActionService:BindAction("SeekerSonarRadar", function(_name, state, _input)
 	if state ~= Enum.UserInputState.Begin or not isSeeker() then
@@ -129,9 +140,7 @@ ContextActionService:BindAction("SeekerSonarRadar", function(_name, state, _inpu
 	end
 	abilityRequestEvent:FireServer("SeekerRadar")
 	return Enum.ContextActionResult.Sink
-end, true, Enum.KeyCode.Q)
-ContextActionService:SetTitle("SeekerSonarRadar", "Radar [Q]")
-ContextActionService:SetPosition("SeekerSonarRadar", UDim2.new(0.72, 0, 0.42, 0))
+end, false, Enum.KeyCode.Q)
 
 ContextActionService:BindAction("SeekerSpeedSurge", function(_name, state, _input)
 	if state ~= Enum.UserInputState.Begin or not isSeeker() then
@@ -139,6 +148,17 @@ ContextActionService:BindAction("SeekerSpeedSurge", function(_name, state, _inpu
 	end
 	abilityRequestEvent:FireServer("SeekerSurge")
 	return Enum.ContextActionResult.Sink
-end, true, Enum.KeyCode.E)
-ContextActionService:SetTitle("SeekerSpeedSurge", "Surge [E]")
+end, false, Enum.KeyCode.E)
+
+MobileActionBus.Connect(function(action)
+	if action == "SpawnDecoy" and isHider() then
+		abilityRequestEvent:FireServer("SpawnDecoy")
+	elseif action == "SmokeSprint" and isHider() then
+		abilityRequestEvent:FireServer("SmokeSprint")
+	elseif action == "SeekerRadar" and isSeeker() then
+		abilityRequestEvent:FireServer("SeekerRadar")
+	elseif action == "SeekerSurge" and isSeeker() then
+		abilityRequestEvent:FireServer("SeekerSurge")
+	end
+end)
 ContextActionService:SetPosition("SeekerSpeedSurge", UDim2.new(0.84, 0, 0.42, 0))

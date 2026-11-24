@@ -11,6 +11,7 @@ local Teams = game:GetService("Teams")
 local localPlayer = Players.LocalPlayer
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 local tauntRequestEvent = PropRemotes.TauntRequest
 
 local MANUAL_TAUNT_COOLDOWN = 10.0
@@ -39,28 +40,39 @@ local function canLocalPlayerTaunt(): boolean
 	return true
 end
 
--- ContextActionService Handler (T Key + Mobile Touch Button)
+local function tryPerformTaunt(): boolean
+	if not canLocalPlayerTaunt() then
+		return false
+	end
+
+	local now = os.clock()
+	if (now - lastClientTaunt) < MANUAL_TAUNT_COOLDOWN then
+		return true
+	end
+
+	lastClientTaunt = now
+	tauntRequestEvent:FireServer()
+	return true
+end
+
+-- ContextActionService Handler (T Key on PC)
 local function handleTauntAction(_actionName: string, inputState: Enum.UserInputState, _inputObject: InputObject)
 	if inputState ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Pass
 	end
 
-	if not canLocalPlayerTaunt() then
-		return Enum.ContextActionResult.Pass
-	end
-
-	local now = os.clock()
-	if (now - lastClientTaunt) < MANUAL_TAUNT_COOLDOWN then
+	if tryPerformTaunt() then
 		return Enum.ContextActionResult.Sink
 	end
-
-	lastClientTaunt = now
-	tauntRequestEvent:FireServer()
-	return Enum.ContextActionResult.Sink
+	return Enum.ContextActionResult.Pass
 end
 
--- Bind "T" key and create mobile button
-ContextActionService:BindAction(ACTION_NAME, handleTauntAction, true, Enum.KeyCode.T)
-ContextActionService:SetTitle(ACTION_NAME, "Taunt (+5~20)")
-ContextActionService:SetPosition(ACTION_NAME, UDim2.new(0.72, 0, 0.42, 0))
+-- Bind "T" key only (custom mobile button triggers via MobileActionBus)
+ContextActionService:BindAction(ACTION_NAME, handleTauntAction, false, Enum.KeyCode.T)
+
+MobileActionBus.Connect(function(action)
+	if action == "Taunt" then
+		tryPerformTaunt()
+	end
+end)
 

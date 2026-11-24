@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 local morphRequestEvent = PropRemotes.MorphRequest
 local toggleLockEvent = PropRemotes.ToggleLockRequest
 local rotatePropEvent = PropRemotes.RotatePropRequest
@@ -83,6 +84,17 @@ scannerLabel.Text = "🎯 Prop • [E / คลิก] แปลงร่าง"
 scannerLabel.ZIndex = 23
 scannerLabel.Parent = scannerPill
 
+local scannerScale = Instance.new("UIScale")
+scannerScale.Parent = scannerPill
+
+local function updateScannerScale()
+	scannerScale.Scale = if MobileActionBus.IsCompactPhone() then 0.78 else 1.0
+end
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScannerScale)
+	updateScannerScale()
+end
+
 local function describePropTarget(inst: Instance): string
 	local rawName = string.gsub(inst.Name, "_Bonus_%d+$", "")
 	rawName = string.gsub(rawName, "_%d+$", "")
@@ -102,7 +114,8 @@ local function describePropTarget(inst: Instance): string
 		baseHp += 50
 	end
 	local tierTxt = if maxDim <= 3.6 then "เล็ก" elseif maxDim >= 7.5 then "ใหญ่" else "กลาง"
-	return string.format("🎯 %s  •  ขนาด%s (%d HP)  •  [E / คลิก]", spaced, tierTxt, baseHp)
+	local promptHint = if MobileActionBus.UseTouchControls() then "แตะของ / กด [แปลง]" else "[E / คลิก]"
+	return string.format("🎯 %s  •  ขนาด%s (%d HP)  •  %s", spaced, tierTxt, baseHp, promptHint)
 end
 
 local currentHoveredTarget: Instance? = nil
@@ -221,13 +234,16 @@ local function getTargetFromScreenPos(screenPos: Vector2, useScreenPoint: boolea
 end
 
 local function getTargetUnderCursor(): Instance?
-	local mouseLocation = UserInputService:GetMouseLocation()
-	local target = getTargetFromScreenPos(mouseLocation, false)
+	local cam = workspace.CurrentCamera
+	local probePos = if MobileActionBus.UseTouchControls() and cam
+		then Vector2.new(cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5)
+		else UserInputService:GetMouseLocation()
+	local target = getTargetFromScreenPos(probePos, false)
 	if target then
 		return target
 	end
 
-	-- Fallback: if mouse cursor isn't directly on a prop, highlight the nearest prop within 16 studs!
+	-- Fallback: if cursor/center isn't directly on a prop, highlight the nearest prop within 16 studs!
 	if isLocalPlayerHider() then
 		local character = localPlayer.Character
 		local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -259,7 +275,11 @@ RunService.RenderStepped:Connect(function()
 		hoverHighlight.Enabled = true
 		local char = localPlayer.Character
 		local locked = char and char:GetAttribute("IsPropLocked") == true
-		scannerPill.Position = if locked then UDim2.new(0.5, 0, 1, -134) else UDim2.new(0.5, 0, 1, -24)
+		local isPhone = MobileActionBus.IsCompactPhone()
+		local yOff = if locked
+			then (if isPhone then -94 else -134)
+			else (if isPhone then -12 else -24)
+		scannerPill.Position = UDim2.new(0.5, 0, 1, yOff)
 		scannerLabel.Text = describePropTarget(target)
 		scannerPill.Visible = true
 	else
@@ -269,13 +289,9 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
-local function handleMorphAction(_actionName: string, inputState: Enum.UserInputState, _inputObject: InputObject)
-	if inputState ~= Enum.UserInputState.Begin then
-		return Enum.ContextActionResult.Pass
-	end
-
+local function triggerMorphIntoBestTarget()
 	if not isLocalPlayerHider() then
-		return Enum.ContextActionResult.Pass
+		return
 	end
 
 	local target = currentHoveredTarget
@@ -288,6 +304,18 @@ local function handleMorphAction(_actionName: string, inputState: Enum.UserInput
 	end
 
 	morphRequestEvent:FireServer(target)
+end
+
+local function handleMorphAction(_actionName: string, inputState: Enum.UserInputState, _inputObject: InputObject)
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+
+	if not isLocalPlayerHider() then
+		return Enum.ContextActionResult.Pass
+	end
+
+	triggerMorphIntoBestTarget()
 	return Enum.ContextActionResult.Sink
 end
 
@@ -327,11 +355,31 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		if target then
 			morphRequestEvent:FireServer(target)
 		end
-	elseif input.UserInputType == Enum.UserInputType.Touch then
-		local touchPos = Vector2.new(input.Position.X, input.Position.Y)
-		local target = getTargetFromScreenPos(touchPos, true)
-		if target then
-			morphRequestEvent:FireServer(target)
+	end
+end)
+
+-- Mobile/Touch: only morph on intentional world tap (never when dragging finger to rotate camera!)
+UserInputService.TouchTapInWorld:Connect(function(touchPos: Vector2, processedByUI: boolean)
+	if processedByUI or not isLocalPlayerHider() then
+		return
+	end
+
+	local target = getTargetFromScreenPos(touchPos, false) or getTargetFromScreenPos(touchPos, true)
+	if target then
+		morphRequestEvent:FireServer(target)
+	end
+end)
+
+MobileActionBus.Connect(function(action)
+	if action == "Morph" then
+		triggerMorphIntoBestTarget()
+	elseif action == "ToggleLock" then
+		if isLocalPlayerHider() then
+			toggleLockEvent:FireServer()
+		end
+	elseif action == "RotateProp" then
+		if isLocalPlayerHider() then
+			rotatePropEvent:FireServer()
 		end
 	end
 end)
@@ -347,14 +395,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt: ProximityPrompt,
 	end
 end)
 
-ContextActionService:BindAction("MorphIntoProp", handleMorphAction, true, Enum.KeyCode.E)
-ContextActionService:SetTitle("MorphIntoProp", "Morph")
-ContextActionService:SetPosition("MorphIntoProp", UDim2.new(0.60, 0, 0.25, 0))
-
-ContextActionService:BindAction("TogglePropLock", handleLockAction, true, Enum.KeyCode.F)
-ContextActionService:SetTitle("TogglePropLock", "Lock Prop")
-ContextActionService:SetPosition("TogglePropLock", UDim2.new(0.72, 0, 0.25, 0))
-
-ContextActionService:BindAction("RotateProp", handleRotateAction, true, Enum.KeyCode.R)
-ContextActionService:SetTitle("RotateProp", "Rotate 45°")
+-- Bind PC keys only (false = no overlapping default ContextActionService grey touch buttons!)
+ContextActionService:BindAction("MorphIntoProp", handleMorphAction, false, Enum.KeyCode.E)
+ContextActionService:BindAction("TogglePropLock", handleLockAction, false, Enum.KeyCode.F)
+ContextActionService:BindAction("RotateProp", handleRotateAction, false, Enum.KeyCode.R)
 ContextActionService:SetPosition("RotateProp", UDim2.new(0.84, 0, 0.25, 0))

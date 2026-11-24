@@ -301,7 +301,9 @@ local function performGunShot()
 	seekerAttackEvent:FireServer(aimRay.Origin, aimRay.Direction)
 end
 
--- 1. Shoot via Left Mouse Click or Mobile Tap (when not using Tool.Activated)
+-- 1. Shoot via Left Mouse Click on PC (never on raw Touch screen-drag!)
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
+
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
@@ -312,21 +314,45 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 		return
 	end
 
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		performGunShot()
 	end
 end)
 
--- 2. Shoot via Equipped SeekerBlaster Tool Activation (bind both existing & newly added tools!)
+-- 2. Shoot via Equipped SeekerBlaster Tool Activation on PC, or dedicated Mobile Fire Button on Touch!
+local function syncToolManualMode(tool: Tool)
+	tool.ManualActivationOnly = MobileActionBus.UseTouchControls()
+end
+
 local function bindTool(tool: Instance)
 	if not tool:IsA("Tool") or tool:GetAttribute("_GunBound") then
 		return
 	end
 	tool:SetAttribute("_GunBound", true)
+	syncToolManualMode(tool)
 	tool.Activated:Connect(function()
-		performGunShot()
+		if not MobileActionBus.UseTouchControls() then
+			performGunShot()
+		end
 	end)
 end
+
+UserInputService.LastInputTypeChanged:Connect(function()
+	local char = localPlayer.Character
+	if char then
+		for _, child in char:GetChildren() do
+			if child:IsA("Tool") then
+				syncToolManualMode(child)
+			end
+		end
+	end
+end)
+
+MobileActionBus.Connect(function(action)
+	if action == "SeekerShoot" then
+		performGunShot()
+	end
+end)
 
 local function bindCharacterTools(character: Model)
 	for _, child in character:GetChildren() do

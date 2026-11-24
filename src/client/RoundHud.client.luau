@@ -9,12 +9,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Debris = game:GetService("Debris")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 local roundEventNotice = PropRemotes.RoundEventNotice
 
 --------------------------------------------------------------------------------
@@ -149,6 +151,9 @@ topBarFrame.ZIndex = 20
 local topBarStroke = stylePanel(topBarFrame, 16)
 topBarFrame.Parent = screenGui
 
+local topBarScale = Instance.new("UIScale")
+topBarScale.Parent = topBarFrame
+
 local statePill = Instance.new("Frame")
 statePill.Size = UDim2.new(1, -24, 0, 21)
 statePill.Position = UDim2.new(0.5, 0, 0, 6)
@@ -214,6 +219,8 @@ mapIntroCard.Parent = screenGui
 addCorner(mapIntroCard, 16)
 local introStroke = addBorderStroke(mapIntroCard, Color3.fromRGB(85, 195, 255), 1.6, 1)
 local introGrad = addGradient(mapIntroCard, Color3.fromRGB(24, 52, 92), Color3.fromRGB(14, 24, 44), 115)
+local introScale = Instance.new("UIScale")
+introScale.Parent = mapIntroCard
 
 local introTagLbl = Instance.new("TextLabel")
 introTagLbl.Size = UDim2.new(1, -24, 0, 16)
@@ -262,6 +269,9 @@ roleHealthFrame.AnchorPoint = Vector2.new(0, 1)
 roleHealthFrame.ZIndex = 20
 local roleCardStroke = stylePanel(roleHealthFrame, 16)
 roleHealthFrame.Parent = screenGui
+
+local roleHealthScale = Instance.new("UIScale")
+roleHealthScale.Parent = roleHealthFrame
 
 local roleLabel = Instance.new("TextLabel")
 roleLabel.Name = "RoleLabel"
@@ -414,8 +424,269 @@ local _, _attackDesc = createKeyRow(seekerControlsFrame, 36, "Click", "ยิง
 local _, seekerRadarDesc = createKeyRow(seekerControlsFrame, 62, "Q", "เรดาร์สแกนระยะ Hider", Color3.fromRGB(255, 215, 75))
 local _, seekerSurgeDesc = createKeyRow(seekerControlsFrame, 88, "E", "เร่งสปีดวิ่งไล่ล่า 4 วินาที", sCol)
 
+--------------------------------------------------------------------------------
+-- 3B. CUSTOM MOBILE / TOUCH SKILL ACTION PADS (Role-Aware, Above Jump Button!)
+--------------------------------------------------------------------------------
+type MobileTouchBtnRefs = {
+	Button: TextButton,
+	Stroke: UIStroke,
+	IconLbl: TextLabel,
+	TitleLbl: TextLabel,
+}
+
+local function createMobileTouchBtn(
+	parent: Instance,
+	name: string,
+	size: UDim2,
+	pos: UDim2,
+	layoutOrder: number,
+	iconText: string,
+	titleText: string,
+	accentColor: Color3,
+	bgColor: Color3?,
+	onTap: () -> ()
+): MobileTouchBtnRefs
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.LayoutOrder = layoutOrder
+	btn.Size = size
+	btn.Position = pos
+	btn.BackgroundColor3 = bgColor or Color3.fromRGB(16, 22, 36)
+	btn.BackgroundTransparency = 0.08
+	btn.AutoButtonColor = false
+	btn.Text = ""
+	btn.ZIndex = 22
+	btn.Parent = parent
+	addCorner(btn, 12)
+	local stroke = addBorderStroke(btn, accentColor, 1.6, 0.18)
+
+	local tapScale = Instance.new("UIScale")
+	tapScale.Parent = btn
+
+	local iconLbl = Instance.new("TextLabel")
+	iconLbl.Active = false
+	iconLbl.Size = UDim2.new(1, -8, 0, 24)
+	iconLbl.Position = UDim2.fromOffset(4, 5)
+	iconLbl.BackgroundTransparency = 1
+	iconLbl.Font = Enum.Font.GothamBlack
+	iconLbl.TextSize = 16
+	iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconLbl.Text = iconText
+	iconLbl.ZIndex = 23
+	iconLbl.Parent = btn
+
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.Active = false
+	titleLbl.Size = UDim2.new(1, -8, 0, 18)
+	titleLbl.Position = UDim2.new(0, 4, 1, -22)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Font = Enum.Font.GothamBlack
+	titleLbl.TextSize = 11
+	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	titleLbl.TextColor3 = accentColor
+	titleLbl.Text = titleText
+	titleLbl.ZIndex = 23
+	titleLbl.Parent = btn
+
+	btn.Activated:Connect(function()
+		tapScale.Scale = 0.92
+		TweenService:Create(tapScale, TweenInfo.new(0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Scale = 1.0,
+		}):Play()
+		onTap()
+	end)
+
+	return {
+		Button = btn,
+		Stroke = stroke,
+		IconLbl = iconLbl,
+		TitleLbl = titleLbl,
+	}
+end
+
+local mobileHiderPad = Instance.new("Frame")
+mobileHiderPad.Name = "MobileHiderSkillPad"
+mobileHiderPad.Size = UDim2.fromOffset(224, 120)
+mobileHiderPad.Position = UDim2.new(1, -14, 1, -98)
+mobileHiderPad.AnchorPoint = Vector2.new(1, 1)
+mobileHiderPad.BackgroundTransparency = 1
+mobileHiderPad.Visible = false
+mobileHiderPad.ZIndex = 21
+mobileHiderPad.Parent = screenGui
+
+local mobileHiderScale = Instance.new("UIScale")
+mobileHiderScale.Parent = mobileHiderPad
+
+local hiderGrid = Instance.new("UIGridLayout")
+hiderGrid.CellSize = UDim2.fromOffset(70, 56)
+hiderGrid.CellPadding = UDim2.fromOffset(7, 8)
+hiderGrid.HorizontalAlignment = Enum.HorizontalAlignment.Right
+hiderGrid.VerticalAlignment = Enum.VerticalAlignment.Bottom
+hiderGrid.SortOrder = Enum.SortOrder.LayoutOrder
+hiderGrid.Parent = mobileHiderPad
+
+local _mobMorphBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"MorphBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	1,
+	"🎭",
+	"แปลงร่าง",
+	Color3.fromRGB(80, 210, 255),
+	nil,
+	function()
+		MobileActionBus.Fire("Morph")
+	end
+)
+
+local mobLockBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"LockBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	2,
+	"🔒",
+	"ล็อกนิ่ง",
+	Color3.fromRGB(115, 220, 255),
+	nil,
+	function()
+		MobileActionBus.Fire("ToggleLock")
+	end
+)
+
+local _mobRotateBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"RotateBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	3,
+	"🔄",
+	"หมุน 45°",
+	Color3.fromRGB(145, 200, 255),
+	nil,
+	function()
+		MobileActionBus.Fire("RotateProp")
+	end
+)
+
 -- Live Cooldown Countdown Tracker
 local cooldownExpiries: { [string]: number } = {}
+
+local mobTauntBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"TauntBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	4,
+	"🎵",
+	"ผิวปาก",
+	Color3.fromRGB(255, 215, 75),
+	nil,
+	function()
+		if workspace:GetAttribute("RoundState") == "HuntingPhase" then
+			local now = os.clock()
+			if (cooldownExpiries["Taunt"] or 0) <= now then
+				cooldownExpiries["Taunt"] = now + 10
+			end
+		end
+		MobileActionBus.Fire("Taunt")
+	end
+)
+
+local mobDecoyBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"DecoyBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	5,
+	"📦",
+	"ร่างปลอม",
+	Color3.fromRGB(185, 145, 255),
+	nil,
+	function()
+		MobileActionBus.Fire("SpawnDecoy")
+	end
+)
+
+local mobSprintBtn = createMobileTouchBtn(
+	mobileHiderPad,
+	"SprintBtn",
+	UDim2.fromOffset(70, 56),
+	UDim2.new(),
+	6,
+	"💨",
+	"ควันวิ่ง",
+	Color3.fromRGB(95, 245, 175),
+	nil,
+	function()
+		MobileActionBus.Fire("SmokeSprint")
+	end
+)
+
+-- Mobile Seeker Pad (Radar + Speed Surge + Prominent Fire Button above Jump!)
+local mobileSeekerPad = Instance.new("Frame")
+mobileSeekerPad.Name = "MobileSeekerSkillPad"
+mobileSeekerPad.Size = UDim2.fromOffset(212, 124)
+mobileSeekerPad.Position = UDim2.new(1, -14, 1, -98)
+mobileSeekerPad.AnchorPoint = Vector2.new(1, 1)
+mobileSeekerPad.BackgroundTransparency = 1
+mobileSeekerPad.Visible = false
+mobileSeekerPad.ZIndex = 21
+mobileSeekerPad.Parent = screenGui
+
+local mobileSeekerScale = Instance.new("UIScale")
+mobileSeekerScale.Parent = mobileSeekerPad
+
+local mobRadarBtn = createMobileTouchBtn(
+	mobileSeekerPad,
+	"RadarBtn",
+	UDim2.fromOffset(102, 54),
+	UDim2.fromOffset(0, 0),
+	1,
+	"📡",
+	"เรดาร์สแกน",
+	Color3.fromRGB(255, 215, 75),
+	nil,
+	function()
+		MobileActionBus.Fire("SeekerRadar")
+	end
+)
+
+local mobSurgeBtn = createMobileTouchBtn(
+	mobileSeekerPad,
+	"SurgeBtn",
+	UDim2.fromOffset(102, 54),
+	UDim2.fromOffset(110, 0),
+	2,
+	"⚡",
+	"เร่งสปีด",
+	Color3.fromRGB(255, 145, 95),
+	nil,
+	function()
+		MobileActionBus.Fire("SeekerSurge")
+	end
+)
+
+local mobFireBtn = createMobileTouchBtn(
+	mobileSeekerPad,
+	"FireBtn",
+	UDim2.fromOffset(212, 62),
+	UDim2.fromOffset(0, 62),
+	3,
+	"🎯 ยิงตรวจจับ",
+	"เล็งเป้ากลางจอแล้วยิง",
+	Color3.fromRGB(255, 225, 225),
+	Color3.fromRGB(168, 28, 44),
+	function()
+		MobileActionBus.Fire("SeekerShoot")
+	end
+)
+mobFireBtn.Stroke.Color = Color3.fromRGB(255, 105, 115)
+mobFireBtn.Stroke.Thickness = 2
+mobFireBtn.IconLbl.TextSize = 15
+mobFireBtn.IconLbl.Position = UDim2.fromOffset(4, 8)
+mobFireBtn.TitleLbl.TextColor3 = Color3.fromRGB(255, 195, 200)
 
 task.spawn(function()
 	while true do
@@ -430,22 +701,32 @@ task.spawn(function()
 		local tRem = getRemain("Taunt")
 		tauntHintDesc.Text = if tRem > 0 then string.format("⏳ คูลดาวน์ผิวปาก (%ds)", tRem) else "ผิวปากล่อ (+5~20 Coins)"
 		tauntHintDesc.TextColor3 = if tRem > 0 then Color3.fromRGB(255, 185, 85) else Color3.fromRGB(225, 234, 250)
+		mobTauntBtn.TitleLbl.Text = if tRem > 0 then string.format("⏳ %ds", tRem) else "ผิวปาก"
+		mobTauntBtn.Button.BackgroundTransparency = if tRem > 0 then 0.38 else 0.08
 
 		local dRem = getRemain("SpawnDecoy")
 		decoyHintDesc.Text = if dRem > 0 then string.format("⏳ คูลดาวน์ร่างปลอม (%ds)", dRem) else "วางร่างปลอมหลอก (20 C)"
 		decoyHintDesc.TextColor3 = if dRem > 0 then Color3.fromRGB(255, 185, 85) else Color3.fromRGB(225, 234, 250)
+		mobDecoyBtn.TitleLbl.Text = if dRem > 0 then string.format("⏳ %ds", dRem) else "ร่างปลอม"
+		mobDecoyBtn.Button.BackgroundTransparency = if dRem > 0 then 0.38 else 0.08
 
 		local sRem = getRemain("SmokeSprint")
 		sprintHintDesc.Text = if sRem > 0 then string.format("⏳ คูลดาวน์วิ่งหนี (%ds)", sRem) else "ระเบิดควันวิ่งหนี"
 		sprintHintDesc.TextColor3 = if sRem > 0 then Color3.fromRGB(255, 185, 85) else Color3.fromRGB(225, 234, 250)
+		mobSprintBtn.TitleLbl.Text = if sRem > 0 then string.format("⏳ %ds", sRem) else "ควันวิ่ง"
+		mobSprintBtn.Button.BackgroundTransparency = if sRem > 0 then 0.38 else 0.08
 
 		local rRem = getRemain("SeekerRadar")
 		seekerRadarDesc.Text = if rRem > 0 then string.format("⏳ คูลดาวน์เรดาร์ (%ds)", rRem) else "เรดาร์สแกนระยะ Hider"
 		seekerRadarDesc.TextColor3 = if rRem > 0 then Color3.fromRGB(255, 185, 85) else Color3.fromRGB(225, 234, 250)
+		mobRadarBtn.TitleLbl.Text = if rRem > 0 then string.format("⏳ %ds", rRem) else "เรดาร์สแกน"
+		mobRadarBtn.Button.BackgroundTransparency = if rRem > 0 then 0.38 else 0.08
 
 		local eRem = getRemain("SeekerSurge")
 		seekerSurgeDesc.Text = if eRem > 0 then string.format("⏳ คูลดาวน์เร่งสปีด (%ds)", eRem) else "เร่งสปีดวิ่งไล่ล่า 4 วินาที"
 		seekerSurgeDesc.TextColor3 = if eRem > 0 then Color3.fromRGB(255, 185, 85) else Color3.fromRGB(225, 234, 250)
+		mobSurgeBtn.TitleLbl.Text = if eRem > 0 then string.format("⏳ %ds", eRem) else "เร่งสปีด"
+		mobSurgeBtn.Button.BackgroundTransparency = if eRem > 0 then 0.38 else 0.08
 	end
 end)
 
@@ -460,6 +741,9 @@ seekerHintCard.Visible = false
 seekerHintCard.ZIndex = 24
 stylePanel(seekerHintCard, 16, Color3.fromRGB(255, 205, 70))
 seekerHintCard.Parent = screenGui
+
+local seekerHintScale = Instance.new("UIScale")
+seekerHintScale.Parent = seekerHintCard
 
 local seekerHintHeader = Instance.new("TextLabel")
 seekerHintHeader.Size = UDim2.new(1, -24, 0, 22)
@@ -592,6 +876,9 @@ killFeedContainer.BackgroundTransparency = 1
 killFeedContainer.ZIndex = 25
 killFeedContainer.Parent = screenGui
 
+local killFeedScale = Instance.new("UIScale")
+killFeedScale.Parent = killFeedContainer
+
 local killFeedLayout = Instance.new("UIListLayout")
 killFeedLayout.Padding = UDim.new(0, 6)
 killFeedLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
@@ -608,6 +895,9 @@ lmsBanner.Visible = false
 lmsBanner.ZIndex = 30
 stylePanel(lmsBanner, 14, Color3.fromRGB(255, 200, 55))
 lmsBanner.Parent = screenGui
+
+local lmsScale = Instance.new("UIScale")
+lmsScale.Parent = lmsBanner
 
 local lmsTitle = Instance.new("TextLabel")
 lmsTitle.Size = UDim2.new(1, -24, 1, 0)
@@ -770,6 +1060,9 @@ summaryCard.ZIndex = 38
 local summaryStroke = stylePanel(summaryCard, 20, Color3.fromRGB(255, 215, 75))
 summaryCard.Parent = screenGui
 
+local summaryScale = Instance.new("UIScale")
+summaryScale.Parent = summaryCard
+
 local summaryHeaderBox = Instance.new("Frame")
 summaryHeaderBox.Size = UDim2.new(1, -24, 0, 72)
 summaryHeaderBox.Position = UDim2.fromOffset(12, 12)
@@ -926,10 +1219,11 @@ local function playMapIntroBanner(theme: MapHudTheme)
 	introTitleLbl.TextColor3 = theme.Accent
 	introSubLbl.Text = theme.Sub
 
-	mapIntroCard.Position = UDim2.new(0.5, 0, 0, 96)
+	local targetIntroY = if MobileActionBus.IsCompactPhone() then 72 else 108
+	mapIntroCard.Position = UDim2.new(0.5, 0, 0, targetIntroY - 12)
 	mapIntroCard.Visible = true
 	TweenService:Create(mapIntroCard, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, 0, 0, 108),
+		Position = UDim2.new(0.5, 0, 0, targetIntroY),
 		BackgroundTransparency = 0.08,
 	}):Play()
 	TweenService:Create(introStroke, TweenInfo.new(0.35), { Transparency = 0.15 }):Play()
@@ -1024,14 +1318,19 @@ local function updateRoleAndControls()
 	local character = localPlayer.Character
 	local isLocked = character and character:GetAttribute("IsPropLocked") == true
 	local sizeClass = character and character:GetAttribute("PropSizeClass")
+	local useTouch = MobileActionBus.UseTouchControls()
+	local roundState = workspace:GetAttribute("RoundState")
+	local isSeekerBlind = (roundState == "HidingPhase" or localPlayer:GetAttribute("IsBlindfolded") == true)
 
 	if teamName == "Hiders" then
 		local sizeSuffix = if typeof(sizeClass) == "string" then string.format(" • %s", sizeClass) else ""
-		roleLabel.Text = if isLocked then "🟦 HIDER [ล็อกตัว]" .. sizeSuffix else "🟦 HIDER" .. sizeSuffix
+		roleLabel.Text = if isLocked then "🟦 HIDER [ล็อก]" .. sizeSuffix else "🟦 HIDER" .. sizeSuffix
 		roleLabel.TextColor3 = ROLE_COLORS.Hiders
 		roleCardStroke.Color = ROLE_COLORS.Hiders
-		hiderControlsFrame.Visible = true
+		hiderControlsFrame.Visible = not useTouch
+		mobileHiderPad.Visible = useTouch
 		seekerControlsFrame.Visible = false
+		mobileSeekerPad.Visible = false
 
 		lockHintDesc.Text = if isLocked
 			then "ปลดล็อก [F] • ส่องดูเพื่อน [V]"
@@ -1039,18 +1338,28 @@ local function updateRoleAndControls()
 		lockHintDesc.TextColor3 = if isLocked
 			then Color3.fromRGB(95, 255, 150)
 			else Color3.fromRGB(225, 234, 250)
+
+		mobLockBtn.IconLbl.Text = if isLocked then "🔓" else "🔒"
+		mobLockBtn.TitleLbl.Text = if isLocked then "ปลดล็อก" else "ล็อกนิ่ง"
+		local lockCol = if isLocked then Color3.fromRGB(95, 255, 155) else Color3.fromRGB(115, 220, 255)
+		mobLockBtn.TitleLbl.TextColor3 = lockCol
+		mobLockBtn.Stroke.Color = lockCol
 	elseif teamName == "Seekers" then
 		roleLabel.Text = "🟥 SEEKER (ฝ่ายล่า)"
 		roleLabel.TextColor3 = ROLE_COLORS.Seekers
 		roleCardStroke.Color = ROLE_COLORS.Seekers
 		hiderControlsFrame.Visible = false
-		seekerControlsFrame.Visible = true
+		mobileHiderPad.Visible = false
+		seekerControlsFrame.Visible = not useTouch
+		mobileSeekerPad.Visible = useTouch and not isSeekerBlind
 	else
 		roleLabel.Text = "🏠 LOBBY"
 		roleLabel.TextColor3 = ROLE_COLORS.Lobby
 		roleCardStroke.Color = PANEL_STROKE_COLOR
 		hiderControlsFrame.Visible = false
+		mobileHiderPad.Visible = false
 		seekerControlsFrame.Visible = false
+		mobileSeekerPad.Visible = false
 	end
 
 	if teamName ~= "Seekers" then
@@ -1059,6 +1368,54 @@ local function updateRoleAndControls()
 	end
 
 	syncHudVisibilityWithLobbyMenu()
+end
+
+local function applyResponsiveHudLayout()
+	local cam = workspace.CurrentCamera
+	local vp = if cam then cam.ViewportSize else Vector2.new(1280, 720)
+	local isPhone = MobileActionBus.IsCompactPhone()
+	local useTouch = MobileActionBus.UseTouchControls()
+
+	topBarScale.Scale = if isPhone then 0.68 else 1.0
+	topBarFrame.Position = if isPhone then UDim2.new(0.5, 0, 0, 6) else UDim2.new(0.5, 0, 0, 12)
+	introScale.Scale = if isPhone then 0.70 else 1.0
+
+	-- On Touch / Phone devices, anchor Role+Coins+HP at Top-Right so Bottom-Left stays 100% clear for Thumbstick!
+	if useTouch or isPhone then
+		roleHealthFrame.AnchorPoint = Vector2.new(1, 0)
+		roleHealthFrame.Position = if isPhone then UDim2.new(1, -14, 0, 6) else UDim2.new(1, -20, 0, 12)
+		roleHealthScale.Scale = if isPhone then 0.66 else 0.86
+
+		killFeedContainer.Position = if isPhone then UDim2.new(1, -14, 0, 68) else UDim2.new(1, -20, 0, 92)
+		killFeedScale.Scale = if isPhone then 0.72 else 0.90
+	else
+		roleHealthFrame.AnchorPoint = Vector2.new(0, 1)
+		roleHealthFrame.Position = UDim2.new(0, 20, 1, -20)
+		roleHealthScale.Scale = 1.0
+
+		killFeedContainer.Position = UDim2.new(1, -20, 0, 20)
+		killFeedScale.Scale = 1.0
+	end
+
+	seekerHintScale.Scale = if isPhone then 0.72 else 1.0
+	seekerHintCard.Position = if isPhone then UDim2.fromOffset(52, 58) else UDim2.fromOffset(20, 68)
+
+	lmsScale.Scale = if isPhone then 0.72 else 1.0
+	lmsBanner.Position = if isPhone then UDim2.new(0.5, 0, 0, 68) else UDim2.new(0.5, 0, 0, 92)
+
+	summaryScale.Scale = if isPhone then 0.72 else 1.0
+
+	-- Position custom mobile skill pads safely above Roblox's Mobile Jump button (70px on phone, 120px on tablet)
+	local isSmallTouch = vp.Y > 0 and vp.Y <= 500
+	local padScale = if vp.Y > 0 and vp.Y < 380 then 0.76 elseif isPhone then 0.82 else 0.95
+	mobileHiderScale.Scale = padScale
+	mobileSeekerScale.Scale = padScale
+
+	local padPos = if isSmallTouch then UDim2.new(1, -14, 1, -98) else UDim2.new(1, -22, 1, -162)
+	mobileHiderPad.Position = padPos
+	mobileSeekerPad.Position = padPos
+
+	updateRoleAndControls()
 end
 
 local function updateHealthBar(health: number, maxHealth: number)
@@ -1131,12 +1488,20 @@ local function bindCharacter(character: Model)
 	end
 end
 
-workspace:GetAttributeChangedSignal("RoundState"):Connect(updateTopStatusBar)
+workspace:GetAttributeChangedSignal("RoundState"):Connect(function()
+	updateTopStatusBar()
+	updateRoleAndControls()
+end)
 workspace:GetAttributeChangedSignal("RoundTimer"):Connect(updateTopStatusBar)
 workspace:GetAttributeChangedSignal("RoundStatus"):Connect(updateTopStatusBar)
 workspace:GetAttributeChangedSignal("ActiveMapId"):Connect(updateMapHudTheme)
 localPlayer:GetAttributeChangedSignal("LobbyMenuOpen"):Connect(syncHudVisibilityWithLobbyMenu)
+localPlayer:GetAttributeChangedSignal("IsBlindfolded"):Connect(updateRoleAndControls)
 localPlayer:GetPropertyChangedSignal("Team"):Connect(updateRoleAndControls)
+UserInputService.LastInputTypeChanged:Connect(applyResponsiveHudLayout)
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyResponsiveHudLayout)
+end
 
 if localPlayer.Character then
 	task.spawn(bindCharacter, localPlayer.Character)
@@ -1144,4 +1509,4 @@ end
 localPlayer.CharacterAdded:Connect(bindCharacter)
 
 updateTopStatusBar()
-updateRoleAndControls()
+applyResponsiveHudLayout()

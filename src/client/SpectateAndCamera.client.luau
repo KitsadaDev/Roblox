@@ -5,9 +5,12 @@
 -- 3. Polished Glassmorphic Spectator Camera Bar (Lobby + Locked Hiders [V])
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local Teams = game:GetService("Teams")
+
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 
 local localPlayer = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -71,6 +74,9 @@ bfCard.ZIndex = 16
 bfCard.Parent = blindfoldFrame
 addCorner(bfCard, 20)
 addBorderStroke(bfCard, Color3.fromRGB(255, 85, 95), 2, 0.2)
+
+local bfCardScale = Instance.new("UIScale")
+bfCardScale.Parent = bfCard
 
 local blindfoldTitle = Instance.new("TextLabel")
 blindfoldTitle.Name = "BlindfoldTitle"
@@ -164,6 +170,9 @@ spectateButton.Parent = qolGui
 addCorner(spectateButton, 12)
 addBorderStroke(spectateButton, Color3.fromRGB(85, 195, 255), 1.6, 0.2)
 
+local spectateBtnScale = Instance.new("UIScale")
+spectateBtnScale.Parent = spectateButton
+
 local switcherBar = Instance.new("Frame")
 switcherBar.Name = "SpectatorSwitcherBar"
 switcherBar.Size = UDim2.fromOffset(360, 50)
@@ -177,6 +186,22 @@ switcherBar.ZIndex = 20
 switcherBar.Parent = qolGui
 addCorner(switcherBar, 14)
 addBorderStroke(switcherBar, Color3.fromRGB(85, 165, 245), 1.5, 0.3)
+
+local switcherScale = Instance.new("UIScale")
+switcherScale.Parent = switcherBar
+
+local function updateSpectateResponsive()
+	local isPhone = MobileActionBus.IsCompactPhone()
+	bfCardScale.Scale = if isPhone then 0.72 else 1.0
+	spectateBtnScale.Scale = if isPhone then 0.78 else 1.0
+	switcherScale.Scale = if isPhone then 0.78 else 1.0
+	spectateButton.Position = if isPhone then UDim2.new(0.5, 0, 1, -10) else UDim2.new(0.5, 0, 1, -22)
+	switcherBar.Position = if isPhone then UDim2.new(0.5, 0, 1, -50) else UDim2.new(0.5, 0, 1, -76)
+end
+if camera then
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateSpectateResponsive)
+	updateSpectateResponsive()
+end
 
 local prevArrowBtn = Instance.new("TextButton")
 prevArrowBtn.Name = "PrevButton"
@@ -265,10 +290,20 @@ local function getSpectatableTargets(): { Player }
 end
 
 local function getDefaultButtonLabel(): string
+	local useTouch = MobileActionBus.UseTouchControls()
 	if isLocalPlayerLockedHider() then
-		return "👁️ ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
+		return if useTouch then "👁️ ส่องดูเพื่อนที่ซ่อนอยู่" else "👁️ ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
 	else
 		return "🎥 ดูการแข่งขันสด (Spectate)"
+	end
+end
+
+local function getActiveStopSpectateLabel(): string
+	local useTouch = MobileActionBus.UseTouchControls()
+	if isLocalPlayerLockedHider() then
+		return if useTouch then "↩️ กลับมาดูตัวเอง" else "↩️ กลับมาดูตัวเอง [V]"
+	else
+		return "✖️ หยุดดูการแข่งขัน"
 	end
 end
 
@@ -334,9 +369,7 @@ local function toggleSpectate()
 		if #targets > 0 or isLocalPlayerLockedHider() then
 			isSpectating = true
 			switcherBar.Visible = true
-			spectateButton.Text = if isLocalPlayerLockedHider()
-				then "↩️ กลับมาดูตัวเอง [V]"
-				else "✖️ หยุดดูการแข่งขัน"
+			spectateButton.Text = getActiveStopSpectateLabel()
 			applySpectateCamera()
 		end
 	end
@@ -360,7 +393,7 @@ local function updateSpectateAvailability()
 		if not isSpectating then
 			spectateButton.Text = getDefaultButtonLabel()
 		else
-			spectateButton.Text = if lockedHider then "↩️ กลับมาดูตัวเอง [V]" else "✖️ หยุดดูการแข่งขัน"
+			spectateButton.Text = getActiveStopSpectateLabel()
 			applySpectateCamera()
 		end
 	else

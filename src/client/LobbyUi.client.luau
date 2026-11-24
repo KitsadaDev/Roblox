@@ -25,6 +25,7 @@ local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
 
 local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PropRemotes"))
+local MobileActionBus = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MobileActionBus"))
 local abilityRequestEvent = PropRemotes.AbilityRequest
 local voteMapEvent = PropRemotes.VoteMapRequest
 local startGameEvent = PropRemotes.StartGameRequest
@@ -287,6 +288,9 @@ addCorner(openLobbyBtn, 12)
 local openBtnStroke = addBorderStroke(openLobbyBtn, Color3.fromRGB(255, 205, 70), 1.8, 0.15)
 bindHoverGlow(openLobbyBtn, openBtnStroke, Color3.fromRGB(22, 28, 44), Color3.fromRGB(34, 44, 68), 0.15)
 
+local openBtnScale = Instance.new("UIScale")
+openBtnScale.Parent = openLobbyBtn
+
 --------------------------------------------------------------------------------
 -- MAIN GLASSMORPHIC DASHBOARD SHELL (840 x 540 + Responsive UIScale)
 --------------------------------------------------------------------------------
@@ -316,10 +320,19 @@ local function updateDashboardScale()
 		return
 	end
 	local vp = cam.ViewportSize
+	local isPhone = MobileActionBus.IsCompactPhone()
+
+	-- Keep ToggleLobbyMenuBtn clear of left iPhone notch/Dynamic Island (52px) + Roblox TopBar Unibar (58px) + TopStatusBar
+	openBtnScale.Scale = if isPhone then 0.76 else 1.0
+	openLobbyBtn.Position = if isPhone then UDim2.fromOffset(52, 58) else UDim2.new(0, 20, 0, 68)
+
 	if vp.X > 0 and vp.Y > 0 then
-		local sx = (vp.X - 36) / DASHBOARD_W
-		local sy = (vp.Y - 36) / DASHBOARD_H
-		uiScale.Scale = math.clamp(math.min(sx, sy), 0.58, 1.06)
+		local padX = if isPhone then 96 else 36
+		local padY = if isPhone then 24 else 36
+		local minScale = if isPhone then 0.45 else 0.58
+		local sx = (vp.X - padX) / DASHBOARD_W
+		local sy = (vp.Y - padY) / DASHBOARD_H
+		uiScale.Scale = math.clamp(math.min(sx, sy), minScale, 1.06)
 	end
 end
 if workspace.CurrentCamera then

@@ -1,6 +1,7 @@
 --!strict
 -- StarterPlayerScripts/Client/SeekerCombat.client.luau
--- Handles Seeker raycast attacks (Left Click, Mobile Tap, or Tool Activation up to 10 studs).
+-- Handles Seeker ranged gun shooting (Left Click, Mobile Tap, or SeekerBlaster Tool Activation up to 140 studs)
+-- + Crosshair UI, Gun Recoil, Bullet Tracer Beams, Muzzle Flash & Impact Sparks!
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,9 +18,9 @@ local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChil
 local seekerAttackEvent = PropRemotes.SeekerAttackRequest
 local roundEventNotice = PropRemotes.RoundEventNotice
 
-local MAX_ATTACK_DISTANCE = 10
-local ATTACK_COOLDOWN = 1.0
+local ATTACK_COOLDOWN = 0.55
 local SEEKERS_TEAM_NAME = "Seekers"
+local GUN_TOOL_NAME = "SeekerBlaster"
 
 local lastClientAttack = 0
 
@@ -40,6 +41,54 @@ penaltyFlash.BackgroundTransparency = 1
 penaltyFlash.BorderSizePixel = 0
 penaltyFlash.ZIndex = 5
 penaltyFlash.Parent = combatGui
+
+-- Tactical Center Crosshair (visible when player is on Seekers team)
+local crosshairFrame = Instance.new("Frame")
+crosshairFrame.Name = "SeekerCrosshair"
+crosshairFrame.Size = UDim2.fromOffset(32, 32)
+crosshairFrame.Position = UDim2.fromScale(0.5, 0.5)
+crosshairFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshairFrame.BackgroundTransparency = 1
+crosshairFrame.Visible = false
+crosshairFrame.ZIndex = 16
+crosshairFrame.Parent = combatGui
+
+local crosshairParts: { Frame } = {}
+for _, spec in {
+	{ Size = UDim2.fromOffset(4, 4), Pos = UDim2.fromScale(0.5, 0.5), Col = Color3.fromRGB(255, 255, 255) },
+	{ Size = UDim2.fromOffset(2, 8), Pos = UDim2.new(0.5, 0, 0.5, -10), Col = Color3.fromRGB(255, 90, 95) },
+	{ Size = UDim2.fromOffset(2, 8), Pos = UDim2.new(0.5, 0, 0.5, 10), Col = Color3.fromRGB(255, 90, 95) },
+	{ Size = UDim2.fromOffset(8, 2), Pos = UDim2.new(0.5, -10, 0.5, 0), Col = Color3.fromRGB(255, 90, 95) },
+	{ Size = UDim2.fromOffset(8, 2), Pos = UDim2.new(0.5, 10, 0.5, 0), Col = Color3.fromRGB(255, 90, 95) },
+} do
+	local tickBar = Instance.new("Frame")
+	tickBar.Size = spec.Size
+	tickBar.Position = spec.Pos
+	tickBar.AnchorPoint = Vector2.new(0.5, 0.5)
+	tickBar.BackgroundColor3 = spec.Col
+	tickBar.BorderSizePixel = 0
+	tickBar.ZIndex = 17
+	tickBar.Parent = crosshairFrame
+
+	local tickStroke = Instance.new("UIStroke")
+	tickStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	tickStroke.Color = Color3.fromRGB(12, 15, 24)
+	tickStroke.Thickness = 1
+	tickStroke.Transparency = 0.2
+	tickStroke.Parent = tickBar
+
+	table.insert(crosshairParts, tickBar)
+end
+
+local function updateCrosshairVisibility()
+	local isSeeker = localPlayer.Team ~= nil and localPlayer.Team.Name == SEEKERS_TEAM_NAME
+	local isBlind = localPlayer:GetAttribute("IsBlindfolded") == true or workspace:GetAttribute("RoundState") == "HidingPhase"
+	crosshairFrame.Visible = isSeeker and not isBlind
+end
+localPlayer:GetPropertyChangedSignal("Team"):Connect(updateCrosshairVisibility)
+localPlayer:GetAttributeChangedSignal("IsBlindfolded"):Connect(updateCrosshairVisibility)
+workspace:GetAttributeChangedSignal("RoundState"):Connect(updateCrosshairVisibility)
+updateCrosshairVisibility()
 
 local feedbackLabel = Instance.new("TextLabel")
 feedbackLabel.Name = "HitFeedbackLabel"
@@ -74,43 +123,129 @@ local function showCombatPopup(text: string, color: Color3, flashScreenRed: bool
 	end
 end
 
+-- Renders glowing bullet tracer beam, muzzle flash, impact spark, and 3D gunshot sound for all players
+local function renderGunShotVfx(origin: Vector3, hitPos: Vector3, hitType: string)
+	local dist = (hitPos - origin).Magnitude
+	if dist < 0.2 then
+		return
+	end
+
+	local tracerCol = if hitType == "Hider"
+		then Color3.fromRGB(255, 225, 70)
+		elseif hitType == "Penalty" then Color3.fromRGB(255, 65, 65)
+		else Color3.fromRGB(255, 130, 65)
+
+	-- Glowing Bullet Tracer Beam
+	local tracer = Instance.new("Part")
+	tracer.Name = "BulletTracer"
+	tracer.Anchored = true
+	tracer.CanCollide = false
+	tracer.CanQuery = false
+	tracer.CastShadow = false
+	tracer.Material = Enum.Material.Neon
+	tracer.Color = tracerCol
+	tracer.Size = Vector3.new(0.14, 0.14, dist)
+	tracer.CFrame = CFrame.lookAt(origin, hitPos) * CFrame.new(0, 0, -dist * 0.5)
+	tracer.Parent = workspace
+
+	TweenService:Create(tracer, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+		Size = Vector3.new(0.03, 0.03, dist),
+	}):Play()
+	Debris:AddItem(tracer, 0.16)
+
+	-- Muzzle Flash Sphere + Brief PointLight + 3D Gunshot Sound
+	local flash = Instance.new("Part")
+	flash.Name = "MuzzleFlash"
+	flash.Shape = Enum.PartType.Ball
+	flash.Anchored = true
+	flash.CanCollide = false
+	flash.CanQuery = false
+	flash.CastShadow = false
+	flash.Material = Enum.Material.Neon
+	flash.Color = Color3.fromRGB(255, 215, 110)
+	flash.Size = Vector3.new(0.75, 0.75, 0.75)
+	flash.Position = origin
+	flash.Parent = workspace
+
+	local flashLight = Instance.new("PointLight")
+	flashLight.Color = Color3.fromRGB(255, 185, 75)
+	flashLight.Brightness = 2.2
+	flashLight.Range = 16
+	flashLight.Parent = flash
+
+	local shotSound = Instance.new("Sound")
+	shotSound.SoundId = "rbxassetid://131072992"
+	shotSound.PlaybackSpeed = 1.25
+	shotSound.Volume = 0.65
+	shotSound.RollOffMaxDistance = 85
+	shotSound.Parent = flash
+	shotSound:Play()
+
+	TweenService:Create(flash, TweenInfo.new(0.09), { Transparency = 1, Size = Vector3.new(0.1, 0.1, 0.1) }):Play()
+	Debris:AddItem(flash, 0.6)
+
+	-- Impact Spark Burst at Hit Position
+	local impact = Instance.new("Part")
+	impact.Name = "BulletImpact"
+	impact.Shape = Enum.PartType.Ball
+	impact.Anchored = true
+	impact.CanCollide = false
+	impact.CanQuery = false
+	impact.CastShadow = false
+	impact.Material = Enum.Material.Neon
+	impact.Color = tracerCol
+	impact.Size = Vector3.new(0.6, 0.6, 0.6)
+	impact.Position = hitPos
+	impact.Parent = workspace
+
+	TweenService:Create(impact, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+		Size = Vector3.new(1.8, 1.8, 1.8),
+	}):Play()
+	Debris:AddItem(impact, 0.2)
+end
+
 roundEventNotice.OnClientEvent:Connect(function(eventType: string, payload: { [string]: any }?)
 	if eventType == "CombatFeedback" and typeof(payload) == "table" then
 		local outcome = tostring(payload.Outcome or "")
 		if outcome == "Kill" then
-			showCombatPopup("🎯 จับได้สำเร็จ! (+15 Coins)", Color3.fromRGB(95, 255, 130), false)
+			showCombatPopup("🎯 ยิงจับได้สำเร็จ! (+15 Coins)", Color3.fromRGB(95, 255, 130), false)
 		elseif outcome == "Hit" then
-			showCombatPopup("💥 โดนผู้ซ่อน! (-50 HP)", Color3.fromRGB(255, 215, 70), false)
+			local dmg = tonumber(payload.Damage) or 50
+			showCombatPopup(string.format("💥 ยิงโดนผู้ซ่อน! (-%d HP)", dmg), Color3.fromRGB(255, 215, 70), false)
 		elseif outcome == "Penalty" then
-			showCombatPopup("❌ ตีผิดของจริง! (-15 HP)", Color3.fromRGB(255, 75, 75), true)
+			showCombatPopup("❌ ยิงพลาดโดนของจริง! (-15 HP)", Color3.fromRGB(255, 75, 75), true)
+		end
+	elseif eventType == "GunShot" and typeof(payload) == "table" then
+		local origin = payload.Origin
+		local hitPos = payload.HitPos
+		local hitType = tostring(payload.HitType or "Miss")
+		if typeof(origin) == "Vector3" and typeof(hitPos) == "Vector3" then
+			renderGunShotVfx(origin, hitPos, hitType)
 		end
 	end
 end)
 
-local function playLocalSwingEffect(character: Model)
-	local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if rootPart then
-		local whoosh = Instance.new("Sound")
-		whoosh.SoundId = "rbxassetid://12222124"
-		whoosh.PlaybackSpeed = 1.85
-		whoosh.Volume = 0.45
-		whoosh.Parent = rootPart
-		whoosh:Play()
-		Debris:AddItem(whoosh, 1.0)
-	end
+local function playLocalRecoilEffect(character: Model)
+	-- Pulse crosshair size slightly on shot
+	crosshairFrame.Size = UDim2.fromOffset(44, 44)
+	TweenService:Create(crosshairFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(32, 32),
+	}):Play()
 
-	local tool = character:FindFirstChild("SeekerScannerBaton")
+	local tool = character:FindFirstChild(GUN_TOOL_NAME)
 	local handle = tool and tool:FindFirstChild("Handle") :: BasePart?
 	if handle then
 		local rightGrip = character:FindFirstChild("RightGrip", true) :: Motor6D?
 		if rightGrip then
 			local origC0 = rightGrip.C0
-			TweenService:Create(rightGrip, TweenInfo.new(0.12), {
-				C0 = origC0 * CFrame.Angles(math.rad(-65), 0, 0),
+			TweenService:Create(rightGrip, TweenInfo.new(0.07), {
+				C0 = origC0 * CFrame.new(0, 0, 0.22) * CFrame.Angles(math.rad(16), 0, 0),
 			}):Play()
-			task.delay(0.14, function()
+			task.delay(0.08, function()
 				if rightGrip.Parent then
-					TweenService:Create(rightGrip, TweenInfo.new(0.18), { C0 = origC0 }):Play()
+					TweenService:Create(rightGrip, TweenInfo.new(0.14), { C0 = origC0 }):Play()
 				end
 			end)
 		end
@@ -137,7 +272,7 @@ local function canLocalPlayerAttack(): (boolean, Model?, BasePart?)
 	return true, character, rootPart
 end
 
-local function performAttackRaycast()
+local function performGunShot()
 	local now = os.clock()
 	if (now - lastClientAttack) < ATTACK_COOLDOWN then
 		return
@@ -148,32 +283,25 @@ local function performAttackRaycast()
 		return
 	end
 
-	playLocalSwingEffect(character)
-
-	local mousePos = UserInputService:GetMouseLocation()
-	local viewportRay = camera:ViewportPointToRay(mousePos.X, mousePos.Y)
-
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams.FilterDescendantsInstances = { character }
-
-	local cameraDistToCharacter = (viewportRay.Origin - rootPart.Position).Magnitude
-	local maxRayLength = cameraDistToCharacter + MAX_ATTACK_DISTANCE + 2
-
-	local result = workspace:Raycast(viewportRay.Origin, viewportRay.Direction * maxRayLength, rayParams)
-	if not result or not result.Instance then
-		return
-	end
-
-	if (rootPart.Position - result.Position).Magnitude > MAX_ATTACK_DISTANCE then
-		return
-	end
-
 	lastClientAttack = now
-	seekerAttackEvent:FireServer(viewportRay.Origin, viewportRay.Direction)
+
+	-- Face character horizontally toward the crosshair aim direction so gun barrel aligns with shot
+	local camCF = camera.CFrame
+	local flatLook = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z)
+	if flatLook.Magnitude > 0.01 and not rootPart.Anchored then
+		rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + flatLook.Unit)
+	end
+
+	playLocalRecoilEffect(character)
+
+	-- Always fire dead-center through SeekerCrosshair (UDim2.fromScale(0.5, 0.5) in IgnoreGuiInset viewport space)
+	local vpSize = camera.ViewportSize
+	local aimRay = camera:ViewportPointToRay(vpSize.X * 0.5, vpSize.Y * 0.5)
+
+	seekerAttackEvent:FireServer(aimRay.Origin, aimRay.Direction)
 end
 
--- 1. Attack via Left Mouse Click or Mobile Tap
+-- 1. Shoot via Left Mouse Click or Mobile Tap (when not using Tool.Activated)
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
@@ -185,19 +313,26 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	end
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		performAttackRaycast()
+		performGunShot()
 	end
 end)
 
--- 2. Attack via Equipped Tool Activation
-local function bindCharacterTools(character: Model)
-	character.ChildAdded:Connect(function(child: Instance)
-		if child:IsA("Tool") then
-			child.Activated:Connect(function()
-				performAttackRaycast()
-			end)
-		end
+-- 2. Shoot via Equipped SeekerBlaster Tool Activation (bind both existing & newly added tools!)
+local function bindTool(tool: Instance)
+	if not tool:IsA("Tool") or tool:GetAttribute("_GunBound") then
+		return
+	end
+	tool:SetAttribute("_GunBound", true)
+	tool.Activated:Connect(function()
+		performGunShot()
 	end)
+end
+
+local function bindCharacterTools(character: Model)
+	for _, child in character:GetChildren() do
+		bindTool(child)
+	end
+	character.ChildAdded:Connect(bindTool)
 end
 
 if localPlayer.Character then

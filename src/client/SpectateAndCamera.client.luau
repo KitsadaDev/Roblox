@@ -1,14 +1,8 @@
 --!strict
 -- StarterPlayerScripts/Client/SpectateAndCamera.client.luau
--- Implements:
--- 1. Hider Prop Camera Helper: Lifts camera offset slightly for tall props and applies LocalTransparencyModifier
---    when zooming close to the local player's own prop.
--- 2. Seeker Blindfold during Hiding Phase: Covers the Seeker's screen with a black Frame and live countdown.
--- 3. Spectator Camera System (Lobby + Locked Hiders!):
---    - Lobby / Eliminated Players: Can spectate all living players in the round.
---    - Locked Hiders (after pressing [F] to lock): Can click "ส่องดูเพื่อนที่ซ่อนอยู่ [V]" (or press V) to cycle
---      through fellow living Hiders using "<" and ">", and automatically returns to their own camera the instant
---      they unlock [F] or take damage!
+-- 1. Hider Prop Camera Helper (Lifts camera offset & fades close prop parts)
+-- 2. Dramatic Seeker Blindfold Countdown Screen during Hiding Phase
+-- 3. Polished Glassmorphic Spectator Camera Bar (Lobby + Locked Hiders [V])
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,6 +12,22 @@ local Teams = game:GetService("Teams")
 local localPlayer = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
+
+local function addCorner(inst: Instance, r: number)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = inst
+end
+
+local function addBorderStroke(inst: Instance, col: Color3, thick: number, trans: number?): UIStroke
+	local s = Instance.new("UIStroke")
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Color = col
+	s.Thickness = thick
+	s.Transparency = trans or 0.25
+	s.Parent = inst
+	return s
+end
 
 --------------------------------------------------------------------------------
 -- CREATE SCREENGUI
@@ -35,42 +45,69 @@ qolGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 qolGui.Parent = playerGui
 
 --------------------------------------------------------------------------------
--- 1. SEEKER BLINDFOLD OVERLAY (Black Frame + Countdown during Hiding Phase)
+-- 1. SEEKER BLINDFOLD OVERLAY (Atmospheric Countdown Screen during Hiding Phase)
 --------------------------------------------------------------------------------
 local blindfoldFrame = Instance.new("Frame")
 blindfoldFrame.Name = "SeekerBlindfoldFrame"
 blindfoldFrame.Size = UDim2.fromScale(1, 1)
-blindfoldFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+blindfoldFrame.BackgroundColor3 = Color3.fromRGB(8, 10, 16)
 blindfoldFrame.BorderSizePixel = 0
 blindfoldFrame.Visible = false
 blindfoldFrame.ZIndex = 15
 blindfoldFrame.Parent = qolGui
 
+local bfGrad = Instance.new("UIGradient")
+bfGrad.Color = ColorSequence.new(Color3.fromRGB(24, 12, 18), Color3.fromRGB(6, 8, 14))
+bfGrad.Rotation = 120
+bfGrad.Parent = blindfoldFrame
+
+local bfCard = Instance.new("Frame")
+bfCard.Size = UDim2.fromOffset(480, 210)
+bfCard.Position = UDim2.fromScale(0.5, 0.5)
+bfCard.AnchorPoint = Vector2.new(0.5, 0.5)
+bfCard.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
+bfCard.BorderSizePixel = 0
+bfCard.ZIndex = 16
+bfCard.Parent = blindfoldFrame
+addCorner(bfCard, 20)
+addBorderStroke(bfCard, Color3.fromRGB(255, 85, 95), 2, 0.2)
+
 local blindfoldTitle = Instance.new("TextLabel")
 blindfoldTitle.Name = "BlindfoldTitle"
-blindfoldTitle.Size = UDim2.new(0.8, 0, 0, 50)
-blindfoldTitle.Position = UDim2.new(0.5, 0, 0.45, 0)
-blindfoldTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+blindfoldTitle.Size = UDim2.new(1, -32, 0, 36)
+blindfoldTitle.Position = UDim2.fromOffset(16, 26)
 blindfoldTitle.BackgroundTransparency = 1
 blindfoldTitle.Font = Enum.Font.GothamBlack
-blindfoldTitle.TextSize = 30
-blindfoldTitle.TextColor3 = Color3.fromRGB(255, 90, 90)
-blindfoldTitle.Text = "Hiders are hiding... Get ready!"
-blindfoldTitle.ZIndex = 16
-blindfoldTitle.Parent = blindfoldFrame
+blindfoldTitle.TextSize = 22
+blindfoldTitle.TextColor3 = Color3.fromRGB(255, 95, 105)
+blindfoldTitle.Text = "🟥 คุณเป็นฝ่ายหา (SEEKER)!"
+blindfoldTitle.ZIndex = 17
+blindfoldTitle.Parent = bfCard
+
+local blindfoldSub = Instance.new("TextLabel")
+blindfoldSub.Size = UDim2.new(1, -32, 0, 24)
+blindfoldSub.Position = UDim2.fromOffset(16, 66)
+blindfoldSub.BackgroundTransparency = 1
+blindfoldSub.Font = Enum.Font.GothamMedium
+blindfoldSub.TextSize = 14
+blindfoldSub.TextColor3 = Color3.fromRGB(195, 210, 235)
+blindfoldSub.Text = "เหล่าผู้ซ่อนกำลังแปลงร่าง... เตรียมออกล่าพร้อมกัน!"
+blindfoldSub.ZIndex = 17
+blindfoldSub.Parent = bfCard
 
 local blindfoldCountdown = Instance.new("TextLabel")
 blindfoldCountdown.Name = "BlindfoldCountdown"
-blindfoldCountdown.Size = UDim2.new(0.6, 0, 0, 60)
-blindfoldCountdown.Position = UDim2.new(0.5, 0, 0.54, 0)
-blindfoldCountdown.AnchorPoint = Vector2.new(0.5, 0.5)
-blindfoldCountdown.BackgroundTransparency = 1
+blindfoldCountdown.Size = UDim2.new(1, -64, 0, 66)
+blindfoldCountdown.Position = UDim2.fromOffset(32, 114)
+blindfoldCountdown.BackgroundColor3 = Color3.fromRGB(28, 18, 26)
 blindfoldCountdown.Font = Enum.Font.GothamBlack
-blindfoldCountdown.TextSize = 44
-blindfoldCountdown.TextColor3 = Color3.fromRGB(255, 255, 255)
-blindfoldCountdown.Text = "30s"
-blindfoldCountdown.ZIndex = 16
-blindfoldCountdown.Parent = blindfoldFrame
+blindfoldCountdown.TextSize = 32
+blindfoldCountdown.TextColor3 = Color3.fromRGB(255, 225, 90)
+blindfoldCountdown.Text = "⏳ ปล่อยตัวใน 30s"
+blindfoldCountdown.ZIndex = 17
+blindfoldCountdown.Parent = bfCard
+addCorner(blindfoldCountdown, 14)
+addBorderStroke(blindfoldCountdown, Color3.fromRGB(255, 195, 70), 1.4, 0.35)
 
 local function updateSeekerBlindfold()
 	local roundState = workspace:GetAttribute("RoundState")
@@ -84,8 +121,7 @@ local function updateSeekerBlindfold()
 
 	if shouldBlind then
 		local secondsLeft = if typeof(roundTimer) == "number" then math.max(0, math.ceil(roundTimer)) else 0
-		blindfoldTitle.Text = "Hiders are hiding... Get ready!"
-		blindfoldCountdown.Text = string.format("Releasing in %ds", secondsLeft)
+		blindfoldCountdown.Text = string.format("⏳ ปล่อยตัวในอีก %d วินาที", secondsLeft)
 
 		local character = localPlayer.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -111,89 +147,78 @@ end
 local isSpectating = false
 local currentTargetIndex = 1
 
--- Main "Spectate" Toggle Button
 local spectateButton = Instance.new("TextButton")
 spectateButton.Name = "SpectateToggleButton"
-spectateButton.Size = UDim2.new(0, 220, 0, 42)
+spectateButton.Size = UDim2.fromOffset(236, 44)
 spectateButton.Position = UDim2.new(0.5, 0, 1, -22)
 spectateButton.AnchorPoint = Vector2.new(0.5, 1)
-spectateButton.BackgroundColor3 = Color3.fromRGB(24, 28, 38)
-spectateButton.Font = Enum.Font.GothamBold
-spectateButton.TextSize = 15
+spectateButton.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+spectateButton.AutoButtonColor = false
+spectateButton.Font = Enum.Font.GothamBlack
+spectateButton.TextSize = 14
 spectateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-spectateButton.Text = "ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
+spectateButton.Text = "👁️ ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
 spectateButton.Visible = false
 spectateButton.ZIndex = 20
 spectateButton.Parent = qolGui
+addCorner(spectateButton, 12)
+addBorderStroke(spectateButton, Color3.fromRGB(85, 195, 255), 1.6, 0.2)
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 10)
-btnCorner.Parent = spectateButton
-
-local btnStroke = Instance.new("UIStroke")
-btnStroke.Color = Color3.fromRGB(85, 195, 255)
-btnStroke.Thickness = 1.5
-btnStroke.Parent = spectateButton
-
--- Spectator Switcher Bar ("<" | Player Name | ">")
 local switcherBar = Instance.new("Frame")
 switcherBar.Name = "SpectatorSwitcherBar"
-switcherBar.Size = UDim2.new(0, 340, 0, 48)
-switcherBar.Position = UDim2.new(0.5, 0, 1, -74)
+switcherBar.Size = UDim2.fromOffset(360, 50)
+switcherBar.Position = UDim2.new(0.5, 0, 1, -76)
 switcherBar.AnchorPoint = Vector2.new(0.5, 1)
-switcherBar.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
-switcherBar.BackgroundTransparency = 0.1
+switcherBar.BackgroundColor3 = Color3.fromRGB(16, 20, 32)
+switcherBar.BackgroundTransparency = 0.08
+switcherBar.BorderSizePixel = 0
 switcherBar.Visible = false
 switcherBar.ZIndex = 20
 switcherBar.Parent = qolGui
-
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(0, 10)
-barCorner.Parent = switcherBar
-
-local barStroke = Instance.new("UIStroke")
-barStroke.Color = Color3.fromRGB(70, 78, 100)
-barStroke.Thickness = 1.5
-barStroke.Parent = switcherBar
+addCorner(switcherBar, 14)
+addBorderStroke(switcherBar, Color3.fromRGB(85, 165, 245), 1.5, 0.3)
 
 local prevArrowBtn = Instance.new("TextButton")
 prevArrowBtn.Name = "PrevButton"
-prevArrowBtn.Size = UDim2.new(0, 48, 1, 0)
-prevArrowBtn.Position = UDim2.new(0, 0, 0, 0)
-prevArrowBtn.BackgroundTransparency = 1
+prevArrowBtn.Size = UDim2.fromOffset(44, 38)
+prevArrowBtn.Position = UDim2.new(0, 6, 0.5, 0)
+prevArrowBtn.AnchorPoint = Vector2.new(0, 0.5)
+prevArrowBtn.BackgroundColor3 = Color3.fromRGB(26, 34, 52)
 prevArrowBtn.Font = Enum.Font.GothamBlack
-prevArrowBtn.TextSize = 22
-prevArrowBtn.TextColor3 = Color3.fromRGB(85, 170, 255)
-prevArrowBtn.Text = "<"
+prevArrowBtn.TextSize = 18
+prevArrowBtn.TextColor3 = Color3.fromRGB(95, 195, 255)
+prevArrowBtn.Text = "◀"
 prevArrowBtn.ZIndex = 21
 prevArrowBtn.Parent = switcherBar
+addCorner(prevArrowBtn, 10)
 
 local nextArrowBtn = Instance.new("TextButton")
 nextArrowBtn.Name = "NextButton"
-nextArrowBtn.Size = UDim2.new(0, 48, 1, 0)
-nextArrowBtn.Position = UDim2.new(1, -48, 0, 0)
-nextArrowBtn.BackgroundTransparency = 1
+nextArrowBtn.Size = UDim2.fromOffset(44, 38)
+nextArrowBtn.Position = UDim2.new(1, -6, 0.5, 0)
+nextArrowBtn.AnchorPoint = Vector2.new(1, 0.5)
+nextArrowBtn.BackgroundColor3 = Color3.fromRGB(26, 34, 52)
 nextArrowBtn.Font = Enum.Font.GothamBlack
-nextArrowBtn.TextSize = 22
-nextArrowBtn.TextColor3 = Color3.fromRGB(85, 170, 255)
-nextArrowBtn.Text = ">"
+nextArrowBtn.TextSize = 18
+nextArrowBtn.TextColor3 = Color3.fromRGB(95, 195, 255)
+nextArrowBtn.Text = "▶"
 nextArrowBtn.ZIndex = 21
 nextArrowBtn.Parent = switcherBar
+addCorner(nextArrowBtn, 10)
 
 local spectatedNameLabel = Instance.new("TextLabel")
 spectatedNameLabel.Name = "SpectatedNameLabel"
-spectatedNameLabel.Size = UDim2.new(1, -96, 1, 0)
-spectatedNameLabel.Position = UDim2.new(0, 48, 0, 0)
+spectatedNameLabel.Size = UDim2.new(1, -112, 1, 0)
+spectatedNameLabel.Position = UDim2.fromOffset(56, 0)
 spectatedNameLabel.BackgroundTransparency = 1
 spectatedNameLabel.Font = Enum.Font.GothamBold
-spectatedNameLabel.TextSize = 14
-spectatedNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+spectatedNameLabel.TextSize = 13
+spectatedNameLabel.TextColor3 = Color3.fromRGB(245, 248, 255)
 spectatedNameLabel.Text = "กำลังดูเพื่อน..."
 spectatedNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 spectatedNameLabel.ZIndex = 21
 spectatedNameLabel.Parent = switcherBar
 
--- Helper: Check if the local player is currently a Locked Hider
 local function isLocalPlayerLockedHider(): boolean
 	local hidersTeam = Teams:FindFirstChild("Hiders")
 	if not hidersTeam or localPlayer.Team ~= hidersTeam then
@@ -209,18 +234,15 @@ local function isLocalPlayerLockedHider(): boolean
 	return character:GetAttribute("IsPropLocked") == true
 end
 
--- Helper: Collect spectatable players
--- - If the local player is a Locked Hider: Only return fellow living Hiders (teammates hiding with us)!
--- - If the local player is in the Lobby / dead: Return all living Hiders and Seekers.
 local function getSpectatableTargets(): { Player }
 	local targets: { Player } = {}
 	local hidersTeam = Teams:FindFirstChild("Hiders")
 	local seekersTeam = Teams:FindFirstChild("Seekers")
 	local lockedHiderMode = isLocalPlayerLockedHider()
+	local isRevealPhase = (workspace:GetAttribute("RoundState") == "RoundOver")
 
 	for _, player in Players:GetPlayers() do
-		if lockedHiderMode then
-			-- Only fellow living players on the Hiders team (excluding self first; if none, allow self as fallback)
+		if lockedHiderMode or isRevealPhase then
 			if player ~= localPlayer and player.Team == hidersTeam then
 				local char = player.Character
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -244,13 +266,12 @@ end
 
 local function getDefaultButtonLabel(): string
 	if isLocalPlayerLockedHider() then
-		return "ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
+		return "👁️ ส่องดูเพื่อนที่ซ่อนอยู่ [V]"
 	else
-		return "ดูการแข่งขัน (Spectate)"
+		return "🎥 ดูการแข่งขันสด (Spectate)"
 	end
 end
 
--- Exit spectate mode and restore camera to local player's own Humanoid
 local function exitSpectateMode()
 	isSpectating = false
 	switcherBar.Visible = false
@@ -263,7 +284,6 @@ local function exitSpectateMode()
 	end
 end
 
--- Update CameraSubject to the currently selected living teammate/player
 local function applySpectateCamera()
 	if not isSpectating then
 		return
@@ -271,7 +291,6 @@ local function applySpectateCamera()
 
 	local targets = getSpectatableTargets()
 	if #targets == 0 then
-		-- If a locked Hider has no other Hider teammates in the server (e.g., solo testing), show a friendly message
 		if isLocalPlayerLockedHider() then
 			switcherBar.Visible = true
 			spectatedNameLabel.Text = "ไม่มีเพื่อนคนอื่นซ่อนอยู่ (คุณซ่อนคนเดียว)"
@@ -299,12 +318,11 @@ local function applySpectateCamera()
 
 	if targetHumanoid then
 		camera.CameraSubject = targetHumanoid
-		-- Show what prop the teammate is disguised as if they morphed!
 		local propModel = targetChar and targetChar:FindFirstChild("MorphedProp")
 		local roleOrProp = if isLocalPlayerLockedHider()
 			then (if propModel then "ซ่อนอยู่" else "ยังไม่แปลงร่าง")
 			else (if targetPlayer.Team then targetPlayer.Team.Name else "")
-		spectatedNameLabel.Text = string.format("ดูเพื่อน: %s (%s)", targetPlayer.DisplayName, roleOrProp)
+		spectatedNameLabel.Text = string.format("👁️ %s (%s)", targetPlayer.DisplayName, roleOrProp)
 	end
 end
 
@@ -317,20 +335,17 @@ local function toggleSpectate()
 			isSpectating = true
 			switcherBar.Visible = true
 			spectateButton.Text = if isLocalPlayerLockedHider()
-				then "กลับมาดูตัวเอง [V]"
-				else "หยุดดู (Stop Spectating)"
+				then "↩️ กลับมาดูตัวเอง [V]"
+				else "✖️ หยุดดูการแข่งขัน"
 			applySpectateCamera()
 		end
 	end
 end
 
--- Update whether the Spectate button is available:
--- Available if:
---   (A) Local player is a Hider and has locked their prop with [F] (`IsPropLocked == true`), OR
---   (B) Local player is in the Lobby / dead during an active round
 local function updateSpectateAvailability()
 	local roundState = workspace:GetAttribute("RoundState")
-	local isRoundActive = (roundState == "HidingPhase" or roundState == "HuntingPhase")
+	local isRoundActive = (roundState == "HidingPhase" or roundState == "HuntingPhase" or roundState == "RoundOver")
+	local lobbyOpen = localPlayer:GetAttribute("LobbyMenuOpen") == true
 
 	local myTeamName = if localPlayer.Team then localPlayer.Team.Name else "Lobby"
 	local myCharacter = localPlayer.Character
@@ -338,18 +353,17 @@ local function updateSpectateAvailability()
 	local isDead = not myHumanoid or myHumanoid.Health <= 0
 	local lockedHider = isLocalPlayerLockedHider()
 
-	local canSpectate = lockedHider or (isRoundActive and (myTeamName == "Lobby" or isDead))
+	local canSpectate = lockedHider or (isRoundActive and (myTeamName == "Lobby" or isDead) and not lobbyOpen)
 
 	if canSpectate then
 		spectateButton.Visible = true
 		if not isSpectating then
 			spectateButton.Text = getDefaultButtonLabel()
 		else
-			spectateButton.Text = if lockedHider then "กลับมาดูตัวเอง [V]" else "หยุดดู (Stop Spectating)"
+			spectateButton.Text = if lockedHider then "↩️ กลับมาดูตัวเอง [V]" else "✖️ หยุดดูการแข่งขัน"
 			applySpectateCamera()
 		end
 	else
-		-- Immediately exit spectate mode if the Hider unlocks [F] or a new round starts!
 		spectateButton.Visible = false
 		if isSpectating then
 			exitSpectateMode()
@@ -357,7 +371,6 @@ local function updateSpectateAvailability()
 	end
 end
 
--- Button & Keybind Connections
 spectateButton.Activated:Connect(toggleSpectate)
 
 prevArrowBtn.Activated:Connect(function()
@@ -370,7 +383,6 @@ nextArrowBtn.Activated:Connect(function()
 	applySpectateCamera()
 end)
 
--- Allow Locked Hiders to press [V] to quickly toggle spectating teammates
 ContextActionService:BindAction("SpectateTeammatesToggle", function(_name, state, _input)
 	if state ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Pass
@@ -423,12 +435,16 @@ RunService.RenderStepped:Connect(function()
 				end
 			end
 		end
+	elseif localPlayer.Team ~= nil and localPlayer.Team.Name == "Seekers" and not isSpectating then
+		-- Over-the-shoulder TPS camera offset for Seekers so their own head never blocks the center crosshair!
+		local zoomDist = (camera.CFrame.Position - camera.Focus.Position).Magnitude
+		local targetSeekerOffset = if zoomDist < 1.8 then Vector3.zero else Vector3.new(1.85, 0.85, 0)
+		humanoid.CameraOffset = humanoid.CameraOffset:Lerp(targetSeekerOffset, 0.2)
 	else
 		humanoid.CameraOffset = Vector3.zero
 	end
 end)
 
--- Connect Signals for Blindfold, Prop Lock & Spectator State
 workspace:GetAttributeChangedSignal("RoundState"):Connect(function()
 	updateSeekerBlindfold()
 	updateSpectateAvailability()
@@ -436,6 +452,7 @@ end)
 
 workspace:GetAttributeChangedSignal("RoundTimer"):Connect(updateSeekerBlindfold)
 localPlayer:GetAttributeChangedSignal("IsBlindfolded"):Connect(updateSeekerBlindfold)
+localPlayer:GetAttributeChangedSignal("LobbyMenuOpen"):Connect(updateSpectateAvailability)
 
 localPlayer:GetPropertyChangedSignal("Team"):Connect(function()
 	updateSeekerBlindfold()
@@ -453,7 +470,6 @@ local function bindCharacter(character: Model)
 	updateSeekerBlindfold()
 	updateSpectateAvailability()
 
-	-- Listen to [F] Prop Lock state so the "Spectate Teammates" button appears when locked and auto-exits when unlocked!
 	lockAttrConnection = character:GetAttributeChangedSignal("IsPropLocked"):Connect(function()
 		updateSpectateAvailability()
 	end)
@@ -469,6 +485,5 @@ if localPlayer.Character then
 end
 localPlayer.CharacterAdded:Connect(bindCharacter)
 
--- Initial sync
 updateSeekerBlindfold()
 updateSpectateAvailability()

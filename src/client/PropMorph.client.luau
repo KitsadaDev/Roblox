@@ -25,15 +25,85 @@ local NEARBY_FALLBACK_DISTANCE = 20
 local MORPH_TAG = "Morphable"
 local HIDERS_TEAM_NAME = "Hiders"
 
--- Reusable Highlight for hovered or nearest Morphable objects
+-- Sleek Holographic Scanner Highlight & Target Prop Info Pill for Hiders
+local playerGui = localPlayer:WaitForChild("PlayerGui") :: PlayerGui
+
 local hoverHighlight = Instance.new("Highlight")
 hoverHighlight.Name = "MorphHoverHighlight"
-hoverHighlight.FillTransparency = 0.72
-hoverHighlight.OutlineTransparency = 0
-hoverHighlight.FillColor = Color3.fromRGB(80, 255, 120)
-hoverHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+hoverHighlight.FillTransparency = 0.82
+hoverHighlight.OutlineTransparency = 0.08
+hoverHighlight.FillColor = Color3.fromRGB(65, 205, 255)
+hoverHighlight.OutlineColor = Color3.fromRGB(195, 242, 255)
 hoverHighlight.Enabled = false
-hoverHighlight.Parent = localPlayer:WaitForChild("PlayerGui")
+hoverHighlight.Parent = playerGui
+
+local existingScanner = playerGui:FindFirstChild("PropScannerHudGui")
+if existingScanner then
+	existingScanner:Destroy()
+end
+
+local scannerGui = Instance.new("ScreenGui")
+scannerGui.Name = "PropScannerHudGui"
+scannerGui.ResetOnSpawn = false
+scannerGui.IgnoreGuiInset = true
+scannerGui.Parent = playerGui
+
+local scannerPill = Instance.new("Frame")
+scannerPill.Name = "TargetPropScannerPill"
+scannerPill.Size = UDim2.fromOffset(330, 42)
+scannerPill.Position = UDim2.new(0.5, 0, 1, -24)
+scannerPill.AnchorPoint = Vector2.new(0.5, 1)
+scannerPill.BackgroundColor3 = Color3.fromRGB(14, 19, 30)
+scannerPill.BackgroundTransparency = 0.08
+scannerPill.BorderSizePixel = 0
+scannerPill.Visible = false
+scannerPill.ZIndex = 22
+scannerPill.Parent = scannerGui
+
+local scCorner = Instance.new("UICorner")
+scCorner.CornerRadius = UDim.new(0, 12)
+scCorner.Parent = scannerPill
+
+local scStroke = Instance.new("UIStroke")
+scStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+scStroke.Color = Color3.fromRGB(75, 205, 255)
+scStroke.Thickness = 1.5
+scStroke.Transparency = 0.2
+scStroke.Parent = scannerPill
+
+local scannerLabel = Instance.new("TextLabel")
+scannerLabel.Size = UDim2.new(1, -20, 1, 0)
+scannerLabel.Position = UDim2.fromOffset(10, 0)
+scannerLabel.BackgroundTransparency = 1
+scannerLabel.Font = Enum.Font.GothamBold
+scannerLabel.TextSize = 12
+scannerLabel.TextTruncate = Enum.TextTruncate.AtEnd
+scannerLabel.TextColor3 = Color3.fromRGB(235, 246, 255)
+scannerLabel.Text = "🎯 Prop • [E / คลิก] แปลงร่าง"
+scannerLabel.ZIndex = 23
+scannerLabel.Parent = scannerPill
+
+local function describePropTarget(inst: Instance): string
+	local rawName = string.gsub(inst.Name, "_Bonus_%d+$", "")
+	rawName = string.gsub(rawName, "_%d+$", "")
+	local spaced = string.gsub(rawName, "(%l)(%u)", "%1 %2")
+
+	local sizeVec = Vector3.new(4, 4, 4)
+	if inst:IsA("BasePart") then
+		sizeVec = inst.Size
+	elseif inst:IsA("Model") then
+		local _, bSize = inst:GetBoundingBox()
+		sizeVec = bSize
+	end
+	local maxDim = math.max(sizeVec.X, sizeVec.Y, sizeVec.Z)
+	local hasHpPerk = localPlayer:GetAttribute("HasHealthPerk") == true
+	local baseHp = if maxDim <= 3.6 then 70 elseif maxDim >= 7.5 then 140 else 100
+	if hasHpPerk then
+		baseHp += 50
+	end
+	local tierTxt = if maxDim <= 3.6 then "เล็ก" elseif maxDim >= 7.5 then "ใหญ่" else "กลาง"
+	return string.format("🎯 %s  •  ขนาด%s (%d HP)  •  [E / คลิก]", spaced, tierTxt, baseHp)
+end
 
 local currentHoveredTarget: Instance? = nil
 
@@ -177,6 +247,7 @@ RunService.RenderStepped:Connect(function()
 		currentHoveredTarget = nil
 		hoverHighlight.Adornee = nil
 		hoverHighlight.Enabled = false
+		scannerPill.Visible = false
 		return
 	end
 
@@ -186,9 +257,15 @@ RunService.RenderStepped:Connect(function()
 	if target then
 		hoverHighlight.Adornee = target
 		hoverHighlight.Enabled = true
+		local char = localPlayer.Character
+		local locked = char and char:GetAttribute("IsPropLocked") == true
+		scannerPill.Position = if locked then UDim2.new(0.5, 0, 1, -134) else UDim2.new(0.5, 0, 1, -24)
+		scannerLabel.Text = describePropTarget(target)
+		scannerPill.Visible = true
 	else
 		hoverHighlight.Adornee = nil
 		hoverHighlight.Enabled = false
+		scannerPill.Visible = false
 	end
 end)
 

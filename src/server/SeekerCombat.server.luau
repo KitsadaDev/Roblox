@@ -1,6 +1,6 @@
 --!strict
 -- ServerScriptService/Server/SeekerCombat.server.luau
--- Handles Seeker attacks (Case A: 50 dmg + highlight to Hiders, Case B: 15 self-damage on real Morphable props, Case C: nothing on walls/floors).
+-- Handles Seeker ranged gun combat (Case A: 50 dmg + highlight to Hiders, Case B: 15 self-damage on real Morphable props, Case C: wall impact).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,16 +13,17 @@ local PropRemotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChil
 local seekerAttackEvent = PropRemotes.SeekerAttackRequest
 local roundEventNotice = PropRemotes.RoundEventNotice
 
--- Combat Constants
-local MAX_ATTACK_DISTANCE = 10 -- 10 studs max range
-local ATTACK_COOLDOWN = 1.0 -- 1-second server cooldown
+-- Gun Combat Constants
+local MAX_SHOOT_DISTANCE = 140 -- 140 studs ranged blaster reach
+local ATTACK_COOLDOWN = 0.55 -- 0.55-second fire rate cooldown
 local HIDER_HIT_DAMAGE = 50 -- Case A: Damage dealt to a Hider
-local SEEKER_MISS_PENALTY = 15 -- Case B: Health penalty when hitting a real Morphable object
+local SEEKER_MISS_PENALTY = 15 -- Case B: Health penalty when shooting a real Morphable object
 local SEEKER_KILL_BOUNTY_COINS = 15 -- Coins awarded to Seeker per Hider eliminated
 
 local MORPH_TAG = "Morphable"
 local SEEKERS_TEAM_NAME = "Seekers"
 local HIDERS_TEAM_NAME = "Hiders"
+local GUN_TOOL_NAME = "SeekerBlaster"
 
 local lastAttackTime: { [Player]: number } = {}
 
@@ -87,69 +88,166 @@ local function isRealMorphableProp(hitInstance: Instance): boolean
 	return false
 end
 
--- Helper: Equip a procedural Neon Scanner Bat Tool when a player spawns on the Seekers team
-local function giveSeekerBatonTool(player: Player, character: Model)
+-- Helper: Remove SeekerBlaster if player leaves Seekers team
+local function removeSeekerGunTool(player: Player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if backpack then
+		local old = backpack:FindFirstChild(GUN_TOOL_NAME)
+		if old then
+			old:Destroy()
+		end
+	end
+	if player.Character then
+		local old = player.Character:FindFirstChild(GUN_TOOL_NAME)
+		if old then
+			old:Destroy()
+		end
+	end
+end
+
+-- Helper: Build & reliably equip the SeekerBlaster gun via Backpack + Humanoid:EquipTool()
+local function giveSeekerGunTool(player: Player, character: Model?)
 	local seekersTeam = Teams:FindFirstChild(SEEKERS_TEAM_NAME)
 	if not seekersTeam or player.Team ~= seekersTeam then
+		removeSeekerGunTool(player)
 		return
 	end
 
-	if character:FindFirstChild("SeekerScannerBaton") then
+	local char = character or player.Character
+	if not char or not char.Parent then
+		return
+	end
+
+	local humanoid = char:WaitForChild("Humanoid", 5) :: Humanoid?
+	local rootPart = char:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+	local backpack = player:WaitForChild("Backpack", 5) :: Backpack?
+	if not humanoid or not rootPart or not backpack or player.Team ~= seekersTeam then
+		return
+	end
+
+	-- If player already has the gun in Backpack, just equip it
+	local existingInChar = char:FindFirstChild(GUN_TOOL_NAME)
+	if existingInChar and existingInChar:IsA("Tool") then
+		return
+	end
+	local existingInBag = backpack:FindFirstChild(GUN_TOOL_NAME)
+	if existingInBag and existingInBag:IsA("Tool") then
+		humanoid:EquipTool(existingInBag)
 		return
 	end
 
 	local tool = Instance.new("Tool")
-	tool.Name = "SeekerScannerBaton"
-	tool.ToolTip = "คลิกซ้ายเพื่อโจมตี Prop ที่สงสัย!"
+	tool.Name = GUN_TOOL_NAME
+	tool.ToolTip = "คลิกซ้าย / แตะหน้าจอ เพื่อยิงปืนไล่ล่าผู้ซ่อน!"
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
+	tool.Grip = CFrame.new(0, -0.25, 0.35)
 
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.Size = Vector3.new(0.4, 3.2, 0.4)
-	handle.Color = Color3.fromRGB(35, 38, 48)
-	handle.Material = Enum.Material.Metal
-	handle.CanCollide = false
-	handle.CanQuery = false
-	handle.Massless = true
-	handle.Parent = tool
+	local function gunPart(
+		name: string,
+		size: Vector3,
+		offset: CFrame,
+		color: Color3,
+		material: Enum.Material,
+		parentTool: Tool,
+		handleRef: Part?
+	): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.Color = color
+		p.Material = material
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Massless = true
+		if handleRef then
+			p.CFrame = handleRef.CFrame * offset
+		else
+			p.CFrame = rootPart.CFrame
+		end
+		p.Parent = parentTool
 
-	local neonTip = Instance.new("Part")
-	neonTip.Name = "NeonTip"
-	neonTip.Size = Vector3.new(0.5, 1.4, 0.5)
-	neonTip.Color = Color3.fromRGB(255, 65, 85)
-	neonTip.Material = Enum.Material.Neon
-	neonTip.CanCollide = false
-	neonTip.CanQuery = false
-	neonTip.Massless = true
-	neonTip.CFrame = handle.CFrame * CFrame.new(0, 1.1, 0)
-	neonTip.Parent = tool
+		if handleRef then
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = handleRef
+			w.Part1 = p
+			w.Parent = p
+		end
+		return p
+	end
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = handle
-	weld.Part1 = neonTip
-	weld.Parent = neonTip
+	-- Grip Handle (held in right hand)
+	local handle = gunPart(
+		"Handle",
+		Vector3.new(0.36, 1.0, 0.48),
+		CFrame.identity,
+		Color3.fromRGB(36, 40, 48),
+		Enum.Material.Metal,
+		tool,
+		nil
+	)
 
-	local humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
-	if humanoid and player.Team == seekersTeam then
-		tool.Parent = character
+	-- Main Gun Receiver Body (extends forward along -Z)
+	gunPart("Receiver", Vector3.new(0.48, 0.68, 2.35), CFrame.new(0, 0.58, -0.65), Color3.fromRGB(48, 54, 68), Enum.Material.Metal, tool, handle)
+	-- Front Barrel
+	gunPart("Barrel", Vector3.new(0.28, 0.28, 1.55), CFrame.new(0, 0.64, -2.35), Color3.fromRGB(28, 30, 38), Enum.Material.Metal, tool, handle)
+	-- Glowing Tactical Neon Rail Strips
+	gunPart("NeonRailTop", Vector3.new(0.2, 0.1, 2.0), CFrame.new(0, 0.96, -0.75), Color3.fromRGB(255, 65, 85), Enum.Material.Neon, tool, handle)
+	gunPart("NeonBarrelRing", Vector3.new(0.38, 0.38, 0.2), CFrame.new(0, 0.64, -2.75), Color3.fromRGB(255, 75, 95), Enum.Material.Neon, tool, handle)
+	-- Magazine & Tactical Stock
+	gunPart("Magazine", Vector3.new(0.3, 0.9, 0.48), CFrame.new(0, -0.05, -0.95) * CFrame.Angles(math.rad(-14), 0, 0), Color3.fromRGB(30, 34, 42), Enum.Material.Metal, tool, handle)
+	gunPart("Stock", Vector3.new(0.36, 0.58, 1.1), CFrame.new(0, 0.5, 0.95), Color3.fromRGB(38, 42, 52), Enum.Material.SmoothPlastic, tool, handle)
+	-- Red-Dot Sight Scope
+	gunPart("ScopeBody", Vector3.new(0.3, 0.3, 0.75), CFrame.new(0, 1.1, -0.4), Color3.fromRGB(28, 30, 36), Enum.Material.Metal, tool, handle)
+	gunPart("ScopeLens", Vector3.new(0.22, 0.22, 0.08), CFrame.new(0, 1.1, -0.78), Color3.fromRGB(0, 235, 255), Enum.Material.Neon, tool, handle)
+	-- Muzzle Tip (used as tracer & muzzle flash origin)
+	local muzzle = gunPart("Muzzle", Vector3.new(0.24, 0.24, 0.24), CFrame.new(0, 0.64, -3.18), Color3.fromRGB(255, 195, 75), Enum.Material.Neon, tool, handle)
+	muzzle.Transparency = 1
+
+	-- Parent to Backpack first so it never falls into void, then equip onto Humanoid!
+	tool.Parent = backpack
+	task.wait(0.05)
+	if tool.Parent == backpack and humanoid.Health > 0 and player.Team == seekersTeam then
+		humanoid:EquipTool(tool)
 	end
 end
 
-Players.PlayerAdded:Connect(function(player: Player)
+local function hookPlayerForSeekerGun(player: Player)
 	player.CharacterAdded:Connect(function(character: Model)
-		task.delay(0.15, function()
-			giveSeekerBatonTool(player, character)
+		task.delay(0.25, function()
+			giveSeekerGunTool(player, character)
 		end)
 	end)
-end)
-for _, p in Players:GetPlayers() do
-	p.CharacterAdded:Connect(function(character: Model)
-		task.delay(0.15, function()
-			giveSeekerBatonTool(p, character)
+	player:GetPropertyChangedSignal("Team"):Connect(function()
+		task.delay(0.25, function()
+			giveSeekerGunTool(player, player.Character)
 		end)
 	end)
+	if player.Character then
+		task.delay(0.25, function()
+			giveSeekerGunTool(player, player.Character)
+		end)
+	end
 end
+
+Players.PlayerAdded:Connect(hookPlayerForSeekerGun)
+for _, p in Players:GetPlayers() do
+	hookPlayerForSeekerGun(p)
+end
+
+-- Also re-verify Seeker gun is equipped whenever HuntingPhase begins (right after Seeker unfreezes!)
+workspace:GetAttributeChangedSignal("RoundState"):Connect(function()
+	local state = workspace:GetAttribute("RoundState")
+	if state == "HidingPhase" or state == "HuntingPhase" then
+		for _, p in Players:GetPlayers() do
+			if p.Team and p.Team.Name == SEEKERS_TEAM_NAME then
+				task.spawn(giveSeekerGunTool, p, p.Character)
+			end
+		end
+	end
+end)
 
 -- Helper: Play 3D sound at position
 local function play3DSound(parentPart: BasePart, soundId: string, pitch: number, volume: number)
@@ -185,13 +283,19 @@ local function playHitHighlightEffect(hiderCharacter: Model)
 	Debris:AddItem(highlight, 0.55)
 end
 
--- Handle Seeker Attack Request
+-- Handle Seeker Gun Shot Request
 seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vector3, aimDirection: Vector3)
+	if workspace:GetAttribute("RoundState") ~= "HuntingPhase" then
+		return
+	end
 	if typeof(aimOrigin) ~= "Vector3" or typeof(aimDirection) ~= "Vector3" then
 		return
 	end
+	if aimDirection.Magnitude < 0.001 then
+		return
+	end
 
-	-- 1-second server cooldown
+	-- Server fire-rate cooldown
 	local now = os.clock()
 	if lastAttackTime[seeker] and (now - lastAttackTime[seeker]) < ATTACK_COOLDOWN then
 		return
@@ -202,112 +306,162 @@ seekerAttackEvent.OnServerEvent:Connect(function(seeker: Player, aimOrigin: Vect
 		return
 	end
 
-	if (aimOrigin - seekerRoot.Position).Magnitude > 25 then
+	if (aimOrigin - seekerRoot.Position).Magnitude > 30 then
 		return
 	end
 
 	lastAttackTime[seeker] = now
 
+	-- Find gun muzzle position for bullet tracer visual
+	local gunTool = seekerChar:FindFirstChild(GUN_TOOL_NAME)
+	local muzzlePart = gunTool and gunTool:FindFirstChild("Muzzle") :: BasePart?
+	local tracerOrigin = if muzzlePart then muzzlePart.Position else (seekerRoot.Position + Vector3.new(0, 1.4, 0))
+
+	-- Exclude the shooting Seeker and any non-Hider characters so fellow Seekers never block the crosshair ray
+	local excludeList: { Instance } = { seekerChar }
+	local hidersTeam = Teams:FindFirstChild(HIDERS_TEAM_NAME)
+	for _, otherPlayer in Players:GetPlayers() do
+		if otherPlayer ~= seeker and otherPlayer.Character then
+			if not hidersTeam or otherPlayer.Team ~= hidersTeam then
+				table.insert(excludeList, otherPlayer.Character)
+			end
+		end
+	end
+
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams.FilterDescendantsInstances = { seekerChar }
+	rayParams.FilterDescendantsInstances = excludeList
 
 	local unitDir = aimDirection.Unit
-	local cameraToRootDist = (aimOrigin - seekerRoot.Position).Magnitude
-	local maxRayLength = cameraToRootDist + MAX_ATTACK_DISTANCE + 2
+	-- Start the crosshair ray at the Seeker's forward plane (still 100% collinear with the crosshair!)
+	-- so ceiling beams or props behind the Seeker's back never intercept the camera ray.
+	local forwardStartOffset = math.max(0, (seekerRoot.Position - aimOrigin):Dot(unitDir) - 1.0)
+	local rayStart = aimOrigin + unitDir * forwardStartOffset
+	local aimResult = workspace:Raycast(rayStart, unitDir * MAX_SHOOT_DISTANCE, rayParams)
+	local targetPoint = if aimResult then aimResult.Position else (rayStart + unitDir * MAX_SHOOT_DISTANCE)
 
-	local rayResult = workspace:Raycast(aimOrigin, unitDir * maxRayLength, rayParams)
-	if not rayResult or not rayResult.Instance then
-		return
+	local hitInstance: Instance? = if aimResult then aimResult.Instance else nil
+	local hitPosition: Vector3 = targetPoint
+
+	-- Anti-wallbang check from eye level: only clamp if a solid wall genuinely blocks line-of-sight to targetPoint
+	local eyeOrigin = seekerRoot.Position + Vector3.new(0, 1.8, 0)
+	local toTarget = targetPoint - eyeOrigin
+	if toTarget.Magnitude > 1.0 then
+		local losResult = workspace:Raycast(eyeOrigin, toTarget.Unit * (toTarget.Magnitude - 0.8), rayParams)
+		if losResult and (losResult.Position - targetPoint).Magnitude > 2.5 then
+			local losHider = getHiderFromHit(losResult.Instance)
+			local aimHider = if hitInstance then getHiderFromHit(hitInstance) else nil
+			if losResult.Instance ~= hitInstance and (losHider == nil or losHider ~= aimHider) and not isRealMorphableProp(losResult.Instance) then
+				hitInstance = losResult.Instance
+				hitPosition = losResult.Position
+			end
+		end
 	end
 
-	local hitInstance = rayResult.Instance
-	local hitPosition = rayResult.Position
-
-	-- Validate 10-stud reach from character
-	if (seekerRoot.Position - hitPosition).Magnitude > MAX_ATTACK_DISTANCE then
-		return
-	end
+	local hitType = "Miss"
 
 	-- Case A: Hits a Hider or their attached Prop -> 50 damage + Highlight effect
-	local hiderPlayer, hiderChar, hiderHumanoid, hiderRoot = getHiderFromHit(hitInstance)
-	if hiderChar and hiderHumanoid and hiderRoot then
-		if hiderRoot.Anchored then
-			hiderRoot.Anchored = false
-			hiderHumanoid.AutoRotate = true
-			hiderChar:SetAttribute("IsPropLocked", false)
-		end
+	if hitInstance then
+		local hiderPlayer, hiderChar, hiderHumanoid, hiderRoot = getHiderFromHit(hitInstance)
+		if hiderChar and hiderHumanoid and hiderRoot then
+			hitType = "Hider"
+			roundEventNotice:FireAllClients("GunShot", {
+				Origin = tracerOrigin,
+				HitPos = hitPosition,
+				HitType = hitType,
+			})
 
-		local propName = tostring(hiderChar:GetAttribute("MorphedPropName") or "Prop")
-		local prevHealth = hiderHumanoid.Health
-		hiderHumanoid:TakeDamage(HIDER_HIT_DAMAGE)
-		playHitHighlightEffect(hiderChar)
-		play3DSound(hiderRoot, "rbxassetid://9119713951", 1.5, 0.9)
-
-		local eliminated = (prevHealth > 0 and hiderHumanoid.Health <= 0)
-		roundEventNotice:FireClient(seeker, "CombatFeedback", {
-			Outcome = if eliminated then "Kill" else "Hit",
-			Damage = HIDER_HIT_DAMAGE,
-			Coins = if eliminated then SEEKER_KILL_BOUNTY_COINS else 0,
-		})
-
-		if eliminated and hiderPlayer then
-			-- Award +15 Coins to Seeker and increment RoundKills
-			local ls = seeker:FindFirstChild("leaderstats")
-			local coins = ls and ls:FindFirstChild("Coins") :: IntValue?
-			if coins then
-				coins.Value += SEEKER_KILL_BOUNTY_COINS
+			if hiderRoot.Anchored then
+				hiderRoot.Anchored = false
+				hiderHumanoid.AutoRotate = true
+				hiderChar:SetAttribute("IsPropLocked", false)
 			end
-			local curKills = (seeker:GetAttribute("RoundKills") :: number?) or 0
-			seeker:SetAttribute("RoundKills", curKills + 1)
 
-			-- Progress Daily Quest for Seeker Catch
-			local qCatches = (seeker:GetAttribute("Quest_CatchCount") :: number?) or 0
-			qCatches += 1
-			seeker:SetAttribute("Quest_CatchCount", qCatches)
-			if qCatches == 1 and seeker:GetAttribute("Quest_CatchDone") ~= true then
-				seeker:SetAttribute("Quest_CatchDone", true)
+			local propName = tostring(hiderChar:GetAttribute("MorphedPropName") or "Prop")
+			local prevHealth = hiderHumanoid.Health
+			-- Guaranteed 2-shot kill against any Hider (scales to 50% of MaxHealth, minimum 50 dmg)
+			local damageDealt = math.max(HIDER_HIT_DAMAGE, math.ceil(hiderHumanoid.MaxHealth * 0.5))
+			hiderHumanoid:TakeDamage(damageDealt)
+			playHitHighlightEffect(hiderChar)
+			play3DSound(hiderRoot, "rbxassetid://9119713951", 1.5, 0.9)
+
+			local eliminated = (prevHealth > 0 and hiderHumanoid.Health <= 0)
+			roundEventNotice:FireClient(seeker, "CombatFeedback", {
+				Outcome = if eliminated then "Kill" else "Hit",
+				Damage = damageDealt,
+				Coins = if eliminated then SEEKER_KILL_BOUNTY_COINS else 0,
+			})
+
+			if eliminated and hiderPlayer then
+				-- Award +15 Coins to Seeker and increment RoundKills
+				local ls = seeker:FindFirstChild("leaderstats")
+				local coins = ls and ls:FindFirstChild("Coins") :: IntValue?
 				if coins then
-					coins.Value += 35
+					coins.Value += SEEKER_KILL_BOUNTY_COINS
 				end
-				roundEventNotice:FireClient(seeker, "QuestComplete", {
-					Title = "ภารกิจสำเร็จ: จับผู้ซ่อนสำเร็จ! (+35 Coins)",
+				local curKills = (seeker:GetAttribute("RoundKills") :: number?) or 0
+				seeker:SetAttribute("RoundKills", curKills + 1)
+
+				-- Progress Daily Quest for Seeker Catch
+				local qCatches = (seeker:GetAttribute("Quest_CatchCount") :: number?) or 0
+				qCatches += 1
+				seeker:SetAttribute("Quest_CatchCount", qCatches)
+				if qCatches == 1 and seeker:GetAttribute("Quest_CatchDone") ~= true then
+					seeker:SetAttribute("Quest_CatchDone", true)
+					if coins then
+						coins.Value += 35
+					end
+					roundEventNotice:FireClient(seeker, "QuestComplete", {
+						Title = "ภารกิจสำเร็จ: จับผู้ซ่อนสำเร็จ! (+35 Coins)",
+					})
+				end
+
+				roundEventNotice:FireAllClients("KillFeed", {
+					Killer = seeker.DisplayName,
+					Victim = hiderPlayer.DisplayName,
+					PropName = propName,
+					Reason = "Eliminated",
 				})
 			end
-
-			roundEventNotice:FireAllClients("KillFeed", {
-				Killer = seeker.DisplayName,
-				Victim = hiderPlayer.DisplayName,
-				PropName = propName,
-				Reason = "Eliminated",
-			})
+			return
 		end
-		return
+
+		-- Case B: Hits a real "Morphable" object in Workspace -> Deduct 15 health from Seeker
+		if isRealMorphableProp(hitInstance) then
+			hitType = "Penalty"
+			roundEventNotice:FireAllClients("GunShot", {
+				Origin = tracerOrigin,
+				HitPos = hitPosition,
+				HitType = hitType,
+			})
+
+			local prevHealth = seekerHumanoid.Health
+			seekerHumanoid:TakeDamage(SEEKER_MISS_PENALTY)
+			play3DSound(seekerRoot, "rbxassetid://12222124", 0.75, 0.9)
+
+			roundEventNotice:FireClient(seeker, "CombatFeedback", {
+				Outcome = "Penalty",
+				Damage = SEEKER_MISS_PENALTY,
+			})
+
+			if prevHealth > 0 and seekerHumanoid.Health <= 0 then
+				roundEventNotice:FireAllClients("KillFeed", {
+					Killer = "Prop Penalty",
+					Victim = seeker.DisplayName,
+					PropName = hitInstance.Name,
+					Reason = "SelfEliminated",
+				})
+			end
+			return
+		end
 	end
 
-	-- Case B: Hits a real "Morphable" object in Workspace -> Deduct 15 health from Seeker
-	if isRealMorphableProp(hitInstance) then
-		local prevHealth = seekerHumanoid.Health
-		seekerHumanoid:TakeDamage(SEEKER_MISS_PENALTY)
-		play3DSound(seekerRoot, "rbxassetid://12222124", 0.75, 0.9)
-
-		roundEventNotice:FireClient(seeker, "CombatFeedback", {
-			Outcome = "Penalty",
-			Damage = SEEKER_MISS_PENALTY,
-		})
-
-		if prevHealth > 0 and seekerHumanoid.Health <= 0 then
-			roundEventNotice:FireAllClients("KillFeed", {
-				Killer = "Prop Penalty",
-				Victim = seeker.DisplayName,
-				PropName = hitInstance.Name,
-				Reason = "SelfEliminated",
-			})
-		end
-		return
-	end
-
-	-- Case C: Hits regular walls/floors -> Do nothing
+	-- Case C: Hits regular walls/floors or air -> Broadcast tracer only, no penalty
+	roundEventNotice:FireAllClients("GunShot", {
+		Origin = tracerOrigin,
+		HitPos = hitPosition,
+		HitType = hitType,
+	})
 end)
 
 Players.PlayerRemoving:Connect(function(player: Player)

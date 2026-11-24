@@ -15,6 +15,7 @@ local REMOTE_NAMES = {
 	"AbilityRequest",
 	"RadarFeedback",
 	"VoteMapRequest",
+	"StartGameRequest",
 	"RoundEventNotice",
 }
 
@@ -51,5 +52,6 @@ return {
 	AbilityRequest = remotesFolder:WaitForChild("AbilityRequest") :: RemoteEvent,
 	RadarFeedback = remotesFolder:WaitForChild("RadarFeedback") :: RemoteEvent,
 	VoteMapRequest = remotesFolder:WaitForChild("VoteMapRequest") :: RemoteEvent,
+	StartGameRequest = remotesFolder:WaitForChild("StartGameRequest") :: RemoteEvent,
 	RoundEventNotice = remotesFolder:WaitForChild("RoundEventNotice") :: RemoteEvent,
 }
